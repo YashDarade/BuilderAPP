@@ -1,27 +1,31 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { 
-  LayoutDashboard, 
-  FolderKanban, 
-  Camera, 
-  Package, 
-  Receipt, 
-  Wallet, 
-  FileText, 
-  Brain, 
+import { useRouter, usePathname } from "next/navigation"
+import {
+  LayoutDashboard,
+  FolderKanban,
+  Camera,
+  Package,
+  Receipt,
+  Wallet,
+  FileText,
+  Brain,
   Bell,
   HardHat,
   ChevronLeft,
   LogOut,
   Settings,
-  User
+  User,
+  Map,
+  History,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/lib/store"
+import { signOut } from "@/lib/supabase/auth"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import {
   DropdownMenu,
@@ -33,33 +37,60 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Projects", href: "/projects", icon: FolderKanban },
-  { name: "Photos", href: "/photos", icon: Camera },
-  { name: "Materials", href: "/materials", icon: Package },
-  { name: "Expenses", href: "/expenses", icon: Receipt },
-  { name: "Budget", href: "/budget", icon: Wallet },
-  { name: "Reports", href: "/reports", icon: FileText },
-  { name: "AI Tools", href: "/ai-tools", icon: Brain },
-  { name: "Notifications", href: "/notifications", icon: Bell },
+const allNavigation = [
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["owner", "site_engineer", "client"] },
+  { name: "Projects", href: "/projects", icon: FolderKanban, roles: ["owner", "site_engineer", "client"] },
+  { name: "Photos", href: "/photos", icon: Camera, roles: ["owner", "site_engineer", "client"] },
+  { name: "Materials", href: "/materials", icon: Package, roles: ["owner", "site_engineer"] },
+  { name: "Expenses", href: "/expenses", icon: Receipt, roles: ["owner", "site_engineer", "client"] },
+  { name: "Budget", href: "/budget", icon: Wallet, roles: ["owner"] },
+  { name: "Reports", href: "/reports", icon: FileText, roles: ["owner", "site_engineer", "client"] },
+  { name: "Roadmap", href: "/roadmap", icon: Map, roles: ["owner", "client"] },
+  { name: "AI Tools", href: "/ai-tools", icon: Brain, roles: ["owner"] },
+  { name: "Activity Log", href: "/activity", icon: History, roles: ["owner", "site_engineer"] },
+  { name: "Notifications", href: "/notifications", icon: Bell, roles: ["owner", "site_engineer", "client"] },
+  { name: "Profile", href: "/profile", icon: User, roles: ["owner", "site_engineer", "client"] },
 ]
+
+const roleBadgeColors: Record<string, string> = {
+  owner: "bg-orange-500/20 text-orange-400",
+  site_engineer: "bg-blue-500/20 text-blue-400",
+  client: "bg-green-500/20 text-green-400",
+}
+
+const roleLabels: Record<string, string> = {
+  owner: "Builder",
+  site_engineer: "Engineer",
+  client: "Client",
+}
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const { currentUser, sidebarOpen, toggleSidebar } = useStore()
+  const role = currentUser?.role || "owner"
+
+  const navigation = allNavigation.filter((item) => item.roles.includes(role))
+
+  async function handleSignOut() {
+    try {
+      await signOut()
+    } catch {
+      // sign-out may fail but we still want to clear local state
+    }
+    useStore.getState().logout()
+    window.location.href = "/sign-in"
+  }
 
   return (
     <>
-      {/* Mobile overlay */}
       {sidebarOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden" 
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
           onClick={toggleSidebar}
         />
       )}
-      
-      {/* Sidebar */}
+
       <aside
         className={cn(
           "fixed left-0 top-0 z-50 h-full w-64 bg-slate-900 text-white transition-transform duration-300 lg:translate-x-0 lg:static lg:z-auto",
@@ -67,7 +98,6 @@ export function Sidebar() {
         )}
       >
         <div className="flex h-full flex-col">
-          {/* Logo */}
           <div className="flex items-center justify-between px-4 py-5">
             <Link href="/dashboard" className="flex items-center gap-2">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500">
@@ -90,7 +120,6 @@ export function Sidebar() {
 
           <Separator className="bg-slate-800" />
 
-          {/* Navigation */}
           <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
@@ -114,7 +143,6 @@ export function Sidebar() {
 
           <Separator className="bg-slate-800" />
 
-          {/* User Profile */}
           <div className="p-3">
             <DropdownMenu>
               <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-md px-3 py-4 text-left text-slate-300 hover:bg-slate-800 hover:text-white outline-none">
@@ -124,9 +152,11 @@ export function Sidebar() {
                     {currentUser?.full_name?.split(" ").map((n: string) => n[0]).join("") || "U"}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex flex-col items-start text-left">
-                  <span className="text-sm font-medium">{currentUser?.full_name || "John Builder"}</span>
-                  <span className="text-xs text-slate-400 capitalize">{currentUser?.role || "Admin"}</span>
+                <div className="flex flex-col items-start text-left flex-1 min-w-0">
+                  <span className="text-sm font-medium truncate w-full">{currentUser?.full_name || "User"}</span>
+                  <Badge variant="secondary" className={cn("text-[10px] mt-0.5 px-1.5 py-0", roleBadgeColors[role])}>
+                    {roleLabels[role]}
+                  </Badge>
                 </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
@@ -134,16 +164,20 @@ export function Sidebar() {
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <User className="mr-2 h-4 w-4" />
-                  Profile
+                <DropdownMenuItem
+                  render={<Link href="/profile" />}
+                >
+                    <User className="mr-2 h-4 w-4" />
+                    Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
+                <DropdownMenuItem
+                  render={<Link href="/profile" />}
+                >
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-red-600">
+                <DropdownMenuItem className="text-red-600" onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign Out
                 </DropdownMenuItem>

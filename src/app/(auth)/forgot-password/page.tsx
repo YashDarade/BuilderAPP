@@ -7,6 +7,7 @@ import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Mail, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react"
 
+import { resetPassword } from "@/lib/supabase/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -28,6 +29,7 @@ type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>
 export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const {
     register,
@@ -40,9 +42,18 @@ export default function ForgotPasswordPage() {
     },
   })
 
-  const onSubmit = async (_data: ForgotPasswordFormValues) => {
+  const onSubmit = async (data: ForgotPasswordFormValues) => {
     setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    setError(null)
+
+    const { error: resetError } = await resetPassword(data.email)
+
+    if (resetError) {
+      setError(resetError.message)
+      setIsLoading(false)
+      return
+    }
+
     setIsLoading(false)
     setIsSubmitted(true)
   }
@@ -89,7 +100,12 @@ export default function ForgotPasswordPage() {
   return (
     <Card className="border-0 shadow-xl">
       <CardHeader className="space-y-1 pb-4">
-        <CardTitle className="text-xl font-semibold">Forgot Password</CardTitle>
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
+            <span className="text-sm font-bold text-primary-foreground">BT</span>
+          </div>
+          <CardTitle className="text-xl font-semibold">BuildTrack AI</CardTitle>
+        </div>
         <CardDescription>
           Enter your email address and we&apos;ll send you a link to reset your
           password
@@ -97,6 +113,11 @@ export default function ForgotPasswordPage() {
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
         <CardContent className="space-y-4">
+          {error && (
+            <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <div className="relative">

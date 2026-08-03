@@ -6,19 +6,22 @@ import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Mail, Lock, Eye, EyeOff, Loader2, User, Phone } from "lucide-react"
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  Loader2,
+  User,
+  Phone,
+  CheckCircle2,
+} from "lucide-react"
 
+import { signUp } from "@/lib/supabase/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   Card,
   CardContent,
@@ -34,9 +37,6 @@ const signUpSchema = z
     email: z.string().email("Please enter a valid email address"),
     password: z.string().min(8, "Password must be at least 8 characters"),
     confirmPassword: z.string(),
-    role: z.enum(["admin", "site_engineer", "client"], {
-      error: "Please select a role",
-    }),
     phone: z.string().min(10, "Please enter a valid phone number"),
     agreeTerms: z.boolean(),
   })
@@ -56,6 +56,8 @@ export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitted, setIsSubmitted] = useState(false)
 
   const {
     register,
@@ -70,7 +72,6 @@ export default function SignUpPage() {
       email: "",
       password: "",
       confirmPassword: "",
-      role: undefined,
       phone: "",
       agreeTerms: false,
     },
@@ -78,23 +79,75 @@ export default function SignUpPage() {
 
   const agreeTerms = watch("agreeTerms")
 
-  const onSubmit = async (_data: SignUpFormValues) => {
+  const onSubmit = async (data: SignUpFormValues) => {
     setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    setError(null)
+
+    const { error: signUpError } = await signUp(data.email, data.password, {
+      full_name: data.fullName,
+      role: "site_engineer",
+      phone: data.phone,
+    })
+
+    if (signUpError) {
+      setError(signUpError.message)
+      setIsLoading(false)
+      return
+    }
+
     setIsLoading(false)
-    router.push("/dashboard")
+    setIsSubmitted(true)
+  }
+
+  if (isSubmitted) {
+    return (
+      <Card className="border-0 shadow-xl">
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+              <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold">Check Your Email</h3>
+              <p className="text-sm text-muted-foreground">
+                We&apos;ve sent a confirmation link to your email address.
+                Please check your inbox and verify your account to continue.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter className="justify-center">
+          <Link
+            href="/sign-in"
+            className="flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+          >
+            Back to Sign In
+          </Link>
+        </CardFooter>
+      </Card>
+    )
   }
 
   return (
     <Card className="border-0 shadow-xl">
       <CardHeader className="space-y-1 pb-4">
-        <CardTitle className="text-xl font-semibold">Create Account</CardTitle>
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
+            <span className="text-sm font-bold text-primary-foreground">BT</span>
+          </div>
+          <CardTitle className="text-xl font-semibold">BuildTrack AI</CardTitle>
+        </div>
         <CardDescription>
           Fill in the details to create your BuildTrack AI account
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
         <CardContent className="space-y-4">
+          {error && (
+            <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="fullName">Full Name</Label>
             <div className="relative">
@@ -146,30 +199,6 @@ export default function SignUpPage() {
             </div>
             {errors.phone && (
               <p className="text-xs text-destructive">{errors.phone.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="role">Role</Label>
-            <Select
-              onValueChange={(value) =>
-                setValue("role", value as "admin" | "site_engineer" | "client")
-              }
-            >
-              <SelectTrigger
-                id="role"
-                className="w-full"
-                aria-invalid={!!errors.role}
-              >
-                <SelectValue placeholder="Select your role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="site_engineer">Site Engineer</SelectItem>
-                <SelectItem value="client">Client</SelectItem>
-              </SelectContent>
-            </Select>
-            {errors.role && (
-              <p className="text-xs text-destructive">{errors.role.message}</p>
             )}
           </div>
           <div className="space-y-2">

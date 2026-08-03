@@ -8,6 +8,7 @@ import { z } from "zod/v4"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react"
 
+import { signIn } from "@/lib/supabase/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -33,6 +34,7 @@ export default function SignInPage() {
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const {
     register,
@@ -51,23 +53,50 @@ export default function SignInPage() {
 
   const rememberMe = watch("rememberMe")
 
-  const onSubmit = async (_data: SignInFormValues) => {
+  const onSubmit = async (data: SignInFormValues) => {
     setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setIsLoading(false)
-    router.push("/dashboard")
+    setError(null)
+
+    try {
+      const { data: result, error: signInError } = await signIn(data.email, data.password)
+
+      console.log("SignIn result:", { result: !!result, error: signInError })
+
+      if (signInError) {
+        console.error("SignIn error details:", JSON.stringify(signInError, null, 2))
+        setError(signInError.message || signInError.toString() || "Unknown error")
+        setIsLoading(false)
+        return
+      }
+
+      window.location.href = "/dashboard"
+    } catch (err) {
+      console.error("SignIn exception:", err)
+      setError(err instanceof Error ? err.message : String(err))
+      setIsLoading(false)
+    }
   }
 
   return (
     <Card className="border-0 shadow-xl">
       <CardHeader className="space-y-1 pb-4">
-        <CardTitle className="text-xl font-semibold">Sign In</CardTitle>
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
+            <span className="text-sm font-bold text-primary-foreground">BT</span>
+          </div>
+          <CardTitle className="text-xl font-semibold">BuildTrack AI</CardTitle>
+        </div>
         <CardDescription>
           Enter your credentials to access your account
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
         <CardContent className="space-y-4">
+          {error && (
+            <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <div className="relative">

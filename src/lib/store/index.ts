@@ -5,6 +5,12 @@ interface AppState {
   currentUser: User | null
   setCurrentUser: (user: User | null) => void
 
+  isLoading: boolean
+  isAuthenticated: boolean
+  login: (user: User) => void
+  logout: () => void
+  setLoading: (loading: boolean) => void
+
   sidebarOpen: boolean
   toggleSidebar: () => void
   setSidebarOpen: (open: boolean) => void
@@ -23,6 +29,12 @@ interface AppState {
 export const useStore = create<AppState>((set) => ({
   currentUser: null,
   setCurrentUser: (user) => set({ currentUser: user }),
+
+  isLoading: true,
+  isAuthenticated: false,
+  login: (user) => set({ currentUser: user, isAuthenticated: true, isLoading: false }),
+  logout: () => set({ currentUser: null, isAuthenticated: false, isLoading: false, notifications: [] }),
+  setLoading: (loading) => set({ isLoading: loading }),
 
   sidebarOpen: true,
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),

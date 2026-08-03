@@ -25,7 +25,13 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { mockProjects } from "@/lib/mock-data"
+import { useProjects, createProject, logActivity } from "@/lib/hooks/use-data"
+import { useStore } from "@/lib/store"
+import { projectSchema } from "@/lib/validation-schemas"
+import { ErrorState } from "@/components/error-state"
+import { ProjectsSkeleton } from "@/components/page-skeletons"
+import { EmptyState } from "@/components/empty-state"
+import { toast } from "sonner"
 import type { ProjectStatus } from "@/lib/types"
 import {
   Search,
@@ -81,10 +87,15 @@ function formatDate(dateStr: string): string {
 }
 
 export default function ProjectsPage() {
+  const { currentUser } = useStore()
+  const { data: rawProjects, isLoading, error, refetch } = useProjects()
+  const projects = rawProjects ?? []
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("name")
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [newProject, setNewProject] = useState({
     name: "",
     client_name: "",
@@ -96,11 +107,11 @@ export default function ProjectsPage() {
   })
 
   const filteredProjects = useMemo(() => {
-    let projects = [...mockProjects]
+    let list = [...projects]
 
     if (search) {
       const q = search.toLowerCase()
-      projects = projects.filter(
+      list = list.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
           p.client_name.toLowerCase().includes(q) ||
@@ -109,41 +120,100 @@ export default function ProjectsPage() {
     }
 
     if (statusFilter !== "all") {
-      projects = projects.filter((p) => p.status === statusFilter)
+      list = list.filter((p) => p.status === statusFilter)
     }
 
     switch (sortBy) {
       case "name":
-        projects.sort((a, b) => a.name.localeCompare(b.name))
+        list.sort((a, b) => a.name.localeCompare(b.name))
         break
       case "date":
-        projects.sort(
+        list.sort(
           (a, b) =>
             new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
         )
         break
       case "budget":
-        projects.sort((a, b) => b.budget - a.budget)
+        list.sort((a, b) => b.budget - a.budget)
         break
       case "progress":
-        projects.sort((a, b) => b.progress - a.progress)
+        list.sort((a, b) => b.progress - a.progress)
         break
     }
 
-    return projects
-  }, [search, statusFilter, sortBy])
+    return list
+  }, [projects, search, statusFilter, sortBy])
 
-  function handleAddProject() {
-    setDialogOpen(false)
-    setNewProject({
-      name: "",
-      client_name: "",
-      address: "",
-      budget: "",
-      start_date: "",
-      expected_completion_date: "",
-      status: "Planning",
+  async function handleAddProject() {
+    const result = projectSchema.safeParse({
+      name: newProject.name,
+      client_name: newProject.client_name,
+      address: newProject.address,
+      budget: newProject.budget,
+      start_date: newProject.start_date,
+      expected_completion_date: newProject.expected_completion_date,
+      status: newProject.status,
     })
+    if (!result.success) {
+      const errors: Record<string, string> = {}
+      result.error.issues.forEach((issue) => {
+        const field = issue.path[0] as string
+        errors[field] = issue.message
+      })
+      setFormErrors(errors)
+      return
+    }
+    setFormErrors({})
+    setSaving(true)
+    try {
+      const project = await createProject({
+        name: result.data.name,
+        client_name: result.data.client_name,
+        client_id: "",
+        engineer_id: null,
+        org_id: currentUser?.org_id || "",
+        address: result.data.address || "",
+        start_date: result.data.start_date || "",
+        expected_completion_date: result.data.expected_completion_date || "",
+        budget: Number(result.data.budget) || 0,
+        spent: 0,
+        status: result.data.status,
+        progress: 0,
+        created_by: currentUser?.id || "",
+      })
+      logActivity({ action: "create", entity_type: "project", entity_id: project.id, entity_name: project.name })
+      toast.success("Project created successfully")
+      setDialogOpen(false)
+      setNewProject({
+        name: "",
+        client_name: "",
+        address: "",
+        budget: "",
+        start_date: "",
+        expected_completion_date: "",
+        status: "Planning",
+      })
+    } catch (e: any) {
+      toast.error("Failed to create project: " + e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (isLoading) {
+    return <ProjectsSkeleton />
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
+          <p className="text-muted-foreground">Manage and track all your construction projects</p>
+        </div>
+        <ErrorState message={error} onRetry={refetch} />
+      </div>
+    )
   }
 
   return (
@@ -181,7 +251,9 @@ export default function ProjectsPage() {
                   onChange={(e) =>
                     setNewProject({ ...newProject, name: e.target.value })
                   }
+                  className={formErrors.name ? "border-destructive" : ""}
                 />
+                {formErrors.name && <p className="text-xs text-destructive">{formErrors.name}</p>}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="client">Client Name</Label>
@@ -192,7 +264,9 @@ export default function ProjectsPage() {
                   onChange={(e) =>
                     setNewProject({ ...newProject, client_name: e.target.value })
                   }
+                  className={formErrors.client_name ? "border-destructive" : ""}
                 />
+                {formErrors.client_name && <p className="text-xs text-destructive">{formErrors.client_name}</p>}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="address">Address</Label>
@@ -215,7 +289,9 @@ export default function ProjectsPage() {
                   onChange={(e) =>
                     setNewProject({ ...newProject, budget: e.target.value })
                   }
+                  className={formErrors.budget ? "border-destructive" : ""}
                 />
+                {formErrors.budget && <p className="text-xs text-destructive">{formErrors.budget}</p>}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
@@ -276,7 +352,9 @@ export default function ProjectsPage() {
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleAddProject}>Create Project</Button>
+              <Button onClick={handleAddProject} disabled={saving}>
+                {saving ? "Creating..." : "Create Project"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -321,15 +399,11 @@ export default function ProjectsPage() {
       </div>
 
       {filteredProjects.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <FolderKanban className="mb-4 h-12 w-12 text-muted-foreground/50" />
-            <p className="text-lg font-medium">No projects found</p>
-            <p className="text-sm text-muted-foreground">
-              Try adjusting your search or filters
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          type="projects"
+          title="No projects found"
+          description="Try adjusting your search or filters"
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredProjects.map((project) => (

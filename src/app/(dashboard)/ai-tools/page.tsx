@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import {
   Card,
   CardContent,
@@ -47,26 +47,16 @@ import {
   Zap,
 } from "lucide-react"
 import type { BillScan, MaterialDetection, AIInsight } from "@/lib/types"
-import {
-  mockBillScans,
-  mockProjects,
-  mockAIInsights,
-} from "@/lib/mock-data"
-
-function formatCurrencyINR(amount: number): string {
-  if (amount >= 10000000) {
-    return `₹${(amount / 10000000).toFixed(2)} Cr`
-  }
-  if (amount >= 100000) {
-    return `₹${(amount / 100000).toFixed(2)} L`
-  }
-  return `₹${amount.toLocaleString("en-IN")}`
-}
+import { useProjects, useBillScans, uploadBillScan, updateBillScan, createExpense } from "@/lib/hooks/use-data"
+import { useStore } from "@/lib/store"
+import { RoleGuard } from "@/components/role-guard"
+import { toast } from "sonner"
 
 const MOCK_DETECTIONS: MaterialDetection[] = [
   {
     id: "det-001",
     photo_id: "photo-001",
+    org_id: "00000000-0000-0000-0000-000000000001",
     object_type: "Cement Bags",
     count: 24,
     confidence_score: 0.96,
@@ -75,6 +65,7 @@ const MOCK_DETECTIONS: MaterialDetection[] = [
   {
     id: "det-002",
     photo_id: "photo-001",
+    org_id: "00000000-0000-0000-0000-000000000001",
     object_type: "Bricks",
     count: 150,
     confidence_score: 0.92,
@@ -83,6 +74,7 @@ const MOCK_DETECTIONS: MaterialDetection[] = [
   {
     id: "det-003",
     photo_id: "photo-001",
+    org_id: "00000000-0000-0000-0000-000000000001",
     object_type: "Steel Bundles",
     count: 8,
     confidence_score: 0.88,
@@ -91,6 +83,7 @@ const MOCK_DETECTIONS: MaterialDetection[] = [
   {
     id: "det-004",
     photo_id: "photo-001",
+    org_id: "00000000-0000-0000-0000-000000000001",
     object_type: "Pipes",
     count: 12,
     confidence_score: 0.85,
@@ -102,7 +95,8 @@ const MOCK_INSIGHTS: AIInsight[] = [
   {
     id: "insight-001",
     project_id: "",
-    insight_type: "risk_assessment",
+    org_id: "00000000-0000-0000-0000-000000000001",
+    insight_type: "delay_risk",
     title: "Budget Risk",
     description:
       "Based on current spending trajectory, the project may exceed budget by 8-12%. Material costs have increased faster than projected.",
@@ -117,7 +111,8 @@ const MOCK_INSIGHTS: AIInsight[] = [
   {
     id: "insight-002",
     project_id: "",
-    insight_type: "material_optimization",
+    org_id: "00000000-0000-0000-0000-000000000001",
+    insight_type: "material_shortage",
     title: "Material Shortage Risk",
     description:
       "Current cement stock will last approximately 12 days at present consumption rate. Steel bars need reorder within a week.",
@@ -132,7 +127,8 @@ const MOCK_INSIGHTS: AIInsight[] = [
   {
     id: "insight-003",
     project_id: "",
-    insight_type: "progress_prediction",
+    org_id: "00000000-0000-0000-0000-000000000001",
+    insight_type: "delay_risk",
     title: "Project Delay Risk",
     description:
       "Weather forecasts indicate heavy rainfall for the next 5 days. This may cause a 3-4 day delay in foundation and outdoor activities.",
@@ -148,7 +144,8 @@ const MOCK_INSIGHTS: AIInsight[] = [
   {
     id: "insight-004",
     project_id: "",
-    insight_type: "cost_analysis",
+    org_id: "00000000-0000-0000-0000-000000000001",
+    insight_type: "cost_optimization",
     title: "Cost Optimization Opportunity",
     description:
       "AI analysis suggests bulk procurement of finishing materials could save 6-8% compared to current purchase pattern.",
@@ -161,6 +158,16 @@ const MOCK_INSIGHTS: AIInsight[] = [
     created_at: new Date().toISOString(),
   },
 ]
+
+function formatCurrencyINR(amount: number): string {
+  if (amount >= 10000000) {
+    return `₹${(amount / 10000000).toFixed(2)} Cr`
+  }
+  if (amount >= 100000) {
+    return `₹${(amount / 100000).toFixed(2)} L`
+  }
+  return `₹${amount.toLocaleString("en-IN")}`
+}
 
 function getConfidenceColor(score: number): string {
   if (score >= 0.9) return "text-green-600"
@@ -197,21 +204,23 @@ function getStatusIcon(status: string) {
 }
 
 export default function AIToolsPage() {
+  const { currentUser } = useStore()
+  const { data: rawMockProjects } = useProjects()
+  const mockProjects = rawMockProjects ?? []
+  const { data: rawBillScans, refetch: refetchBillScans } = useBillScans()
+  const billScans = rawBillScans ?? []
   const [billScanStatus, setBillScanStatus] = useState<string>("idle")
   const [scannedBill, setScannedBill] = useState<BillScan | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
   const [detectionStatus, setDetectionStatus] = useState<string>("idle")
   const [selectedProject, setSelectedProject] = useState("")
   const [insightsLoading, setInsightsLoading] = useState(false)
   const [insights, setInsights] = useState<AIInsight[]>([])
   const [createExpenseDialogOpen, setCreateExpenseDialogOpen] = useState(false)
-
-  const handleBillUpload = useCallback(() => {
-    setBillScanStatus("processing")
-    setTimeout(() => {
-      setBillScanStatus("completed")
-      setScannedBill(mockBillScans[0])
-    }, 2000)
-  }, [])
+  const [expenseForm, setExpenseForm] = useState({ description: "", category: "Miscellaneous", project_id: "", date: "" })
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleDetectionUpload = useCallback(() => {
     setDetectionStatus("processing")
@@ -219,6 +228,87 @@ export default function AIToolsPage() {
       setDetectionStatus("completed")
     }, 2500)
   }, [])
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file")
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File must be under 10MB")
+      return
+    }
+    setSelectedFile(file)
+    setPreviewUrl(URL.createObjectURL(file))
+    handleBillUpload(file)
+  }
+
+  async function handleBillUpload(file: File) {
+    setBillScanStatus("processing")
+    setUploading(true)
+    try {
+      const scan = await uploadBillScan(file)
+      // Simulate OCR processing with mock results
+      await new Promise((r) => setTimeout(r, 1500))
+      const mockVendors = ["Lakshmi Cement Suppliers", "Steel Corp India", "Kajaria Ceramics", "Hindustan Pipes"]
+      const mockAmounts = [84500, 234000, 156000, 45000]
+      const mockGst = ["27AABCL1234M1ZM", "29BBBFS5678N1ZP", "07CCCCK9012M1Z5", "33DDDLM3456M1Z8"]
+      const idx = Math.floor(Math.random() * mockVendors.length)
+      const updated = await updateBillScan(scan.id, {
+        vendor_name: mockVendors[idx],
+        amount: mockAmounts[idx],
+        gst_number: mockGst[idx],
+        confidence_score: 0.85 + Math.random() * 0.14,
+        status: "completed",
+      })
+      setScannedBill(updated)
+      setBillScanStatus("completed")
+      setExpenseForm({
+        description: `Bill from ${mockVendors[idx]}`,
+        category: "Miscellaneous",
+        project_id: "",
+        date: new Date().toISOString().split("T")[0],
+      })
+      refetchBillScans()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to upload bill")
+      setBillScanStatus("failed")
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  function clearFileSelection() {
+    setSelectedFile(null)
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setPreviewUrl(null)
+    if (fileInputRef.current) fileInputRef.current.value = ""
+  }
+
+  async function handleCreateExpense() {
+    if (!scannedBill) return
+    try {
+      await createExpense({
+        description: expenseForm.description || `Bill from ${scannedBill.vendor_name}`,
+        amount: scannedBill.amount,
+        category: expenseForm.category as any,
+        project_id: expenseForm.project_id || mockProjects[0]?.id || "",
+        vendor: scannedBill.vendor_name,
+        date: expenseForm.date || scannedBill.date,
+        bill_url: scannedBill.image_url,
+        created_by: currentUser?.id || "",
+      })
+      toast.success("Expense created from bill scan")
+      setCreateExpenseDialogOpen(false)
+      clearFileSelection()
+      setBillScanStatus("idle")
+      setScannedBill(null)
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create expense")
+    }
+  }
 
   const handleAnalyze = useCallback(() => {
     if (!selectedProject) return
@@ -236,6 +326,7 @@ export default function AIToolsPage() {
   }, [selectedProject])
 
   return (
+    <RoleGuard allowedRoles={["owner"]}>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -262,26 +353,43 @@ export default function AIToolsPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+
           {billScanStatus === "idle" && (
             <div
               className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={handleBillUpload}
+              onClick={() => fileInputRef.current?.click()}
             >
               <Upload className="mb-3 h-10 w-10 text-muted-foreground" />
               <p className="text-sm font-medium">Click to upload bill image</p>
               <p className="text-xs text-muted-foreground">
-                Supports JPG, PNG, PDF - Max 10MB
+                Supports JPG, PNG - Max 10MB
               </p>
             </div>
           )}
 
           {billScanStatus === "processing" && (
-            <div className="flex flex-col items-center justify-center rounded-lg border p-8">
-              <Loader2 className="mb-3 h-10 w-10 text-blue-500 animate-spin" />
-              <p className="text-sm font-medium">Processing bill...</p>
-              <p className="text-xs text-muted-foreground">
-                Extracting text and analyzing data
-              </p>
+            <div className="space-y-3">
+              {previewUrl && (
+                <img
+                  src={previewUrl}
+                  alt="Bill preview"
+                  className="mx-auto max-h-48 rounded-lg object-contain"
+                />
+              )}
+              <div className="flex flex-col items-center justify-center rounded-lg border p-6">
+                <Loader2 className="mb-3 h-10 w-10 text-blue-500 animate-spin" />
+                <p className="text-sm font-medium">Processing bill...</p>
+                <p className="text-xs text-muted-foreground">
+                  Uploading and extracting text
+                </p>
+              </div>
             </div>
           )}
 
@@ -294,6 +402,14 @@ export default function AIToolsPage() {
                   Status: Verified
                 </Badge>
               </div>
+
+              {scannedBill.image_url && (
+                <img
+                  src={scannedBill.image_url}
+                  alt="Scanned bill"
+                  className="mx-auto max-h-48 rounded-lg object-contain"
+                />
+              )}
 
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 <div className="rounded-lg bg-muted/50 p-3">
@@ -341,6 +457,7 @@ export default function AIToolsPage() {
                 <Button
                   variant="outline"
                   onClick={() => {
+                    clearFileSelection()
                     setBillScanStatus("idle")
                     setScannedBill(null)
                   }}
@@ -363,7 +480,10 @@ export default function AIToolsPage() {
               <Button
                 variant="outline"
                 className="mt-3"
-                onClick={() => setBillScanStatus("idle")}
+                onClick={() => {
+                  clearFileSelection()
+                  setBillScanStatus("idle")
+                }}
               >
                 Try Again
               </Button>
@@ -373,43 +493,49 @@ export default function AIToolsPage() {
           {billScanStatus === "idle" && (
             <div className="space-y-2">
               <p className="text-sm font-medium">Recent Scans</p>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Vendor</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Confidence</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockBillScans.map((scan) => (
-                    <TableRow key={scan.id}>
-                      <TableCell className="font-medium">
-                        {scan.vendor_name}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrencyINR(scan.amount)}
-                      </TableCell>
-                      <TableCell>{scan.date}</TableCell>
-                      <TableCell>
-                        <span
-                          className={`font-medium ${getConfidenceColor(scan.confidence_score)}`}
-                        >
-                          {(scan.confidence_score * 100).toFixed(0)}%
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          {getStatusIcon(scan.status)}
-                          <span className="text-sm capitalize">{scan.status}</span>
-                        </div>
-                      </TableCell>
+              {billScans.length === 0 ? (
+                <p className="text-center py-4 text-sm text-muted-foreground">
+                  No bills scanned yet. Upload one to get started.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Vendor</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Confidence</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {billScans.map((scan) => (
+                      <TableRow key={scan.id}>
+                        <TableCell className="font-medium">
+                          {scan.vendor_name}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrencyINR(scan.amount)}
+                        </TableCell>
+                        <TableCell>{scan.date}</TableCell>
+                        <TableCell>
+                          <span
+                            className={`font-medium ${getConfidenceColor(scan.confidence_score)}`}
+                          >
+                            {(scan.confidence_score * 100).toFixed(0)}%
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            {getStatusIcon(scan.status)}
+                            <span className="text-sm capitalize">{scan.status}</span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </div>
           )}
         </CardContent>
@@ -546,7 +672,7 @@ export default function AIToolsPage() {
                 <SelectValue placeholder="Select a project" />
               </SelectTrigger>
               <SelectContent>
-                {mockProjects.map((p) => (
+                {(mockProjects || []).map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name}
                   </SelectItem>
@@ -584,7 +710,7 @@ export default function AIToolsPage() {
                   AI Insights ({insights.length} findings)
                 </span>
                 <Badge variant="outline" className="ml-auto">
-                  {mockProjects.find((p) => p.id === selectedProject)?.name}
+                  {(mockProjects || []).find((p) => p.id === selectedProject)?.name}
                 </Badge>
               </div>
 
@@ -681,6 +807,36 @@ export default function AIToolsPage() {
                   {scannedBill.gst_number || "N/A"}
                 </span>
               </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Category</label>
+                <select
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  value={expenseForm.category}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
+                >
+                  <option>Miscellaneous</option>
+                  <option>Labor</option>
+                  <option>Cement</option>
+                  <option>Steel</option>
+                  <option>Plumbing</option>
+                  <option>Electrical</option>
+                  <option>Transport</option>
+                  <option>Machinery</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Project</label>
+                <select
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  value={expenseForm.project_id}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, project_id: e.target.value })}
+                >
+                  <option value="">Select project</option>
+                  {mockProjects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
           <DialogFooter>
@@ -690,18 +846,13 @@ export default function AIToolsPage() {
             >
               Cancel
             </Button>
-            <Button
-              onClick={() => {
-                setCreateExpenseDialogOpen(false)
-                setBillScanStatus("idle")
-                setScannedBill(null)
-              }}
-            >
+            <Button onClick={handleCreateExpense}>
               Create Expense
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
+    </RoleGuard>
   )
 }

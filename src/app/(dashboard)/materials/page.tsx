@@ -46,7 +46,15 @@ import {
   Search,
 } from "lucide-react"
 import type { Material } from "@/lib/types"
-import { mockMaterials, mockProjects } from "@/lib/mock-data"
+import { useMaterials, useProjects, createMaterial, updateMaterial, deleteMaterial } from "@/lib/hooks/use-data"
+import { useStore } from "@/lib/store"
+import { isAdmin } from "@/lib/supabase/auth"
+import { materialSchema } from "@/lib/validation-schemas"
+import { ErrorState } from "@/components/error-state"
+import { TablePageSkeleton } from "@/components/page-skeletons"
+import { RoleGuard } from "@/components/role-guard"
+import { logActivity } from "@/lib/hooks/use-data"
+import { toast } from "sonner"
 
 function formatCurrencyINR(amount: number): string {
   if (amount >= 10000000) {
@@ -56,10 +64,6 @@ function formatCurrencyINR(amount: number): string {
     return `₹${(amount / 100000).toFixed(2)} L`
   }
   return `₹${amount.toLocaleString("en-IN")}`
-}
-
-function getProjectName(projectId: string): string {
-  return mockProjects.find((p) => p.id === projectId)?.name || "Unknown"
 }
 
 function getStatus(material: Material): "In Stock" | "Low Stock" | "Out of Stock" {
@@ -81,8 +85,6 @@ function getStatusColor(status: string): "default" | "secondary" | "destructive"
   }
 }
 
-const categories = [...new Set(mockMaterials.map((m) => m.category))].sort()
-
 const emptyForm = {
   name: "",
   category: "",
@@ -98,13 +100,26 @@ const emptyForm = {
 }
 
 export default function MaterialsPage() {
-  const [materials, setMaterials] = useState<Material[]>(mockMaterials)
+  const { currentUser } = useStore()
+  const admin = isAdmin(currentUser)
+  const role = currentUser?.role || "owner"
+  const canEdit = admin || role === "site_engineer"
+
+  const { data: rawMaterials, isLoading: materialsLoading, error: materialsError, refetch: refetchMaterials } = useMaterials()
+  const materials = rawMaterials ?? []
+  const { data: rawProjects, isLoading: projectsLoading, error: projectsError, refetch: refetchProjects } = useProjects()
+  const projects = rawProjects ?? []
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [projectFilter, setProjectFilter] = useState("all")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+
+  const isLoading = materialsLoading || projectsLoading
+
+  const categories = useMemo(() => [...new Set(materials.map((m) => m.category))].sort(), [materials])
 
   const filtered = useMemo(() => {
     return materials.filter((m) => {
@@ -131,14 +146,20 @@ export default function MaterialsPage() {
 
   const uniqueCategories = useMemo(() => new Set(materials.map((m) => m.category)).size, [materials])
 
+  function getProjectName(projectId: string): string {
+    return projects.find((p) => p.id === projectId)?.name || "Unknown"
+  }
+
   function handleAdd() {
     setEditingId(null)
     setForm(emptyForm)
+    setFormErrors({})
     setDialogOpen(true)
   }
 
   function handleEdit(m: Material) {
     setEditingId(m.id)
+    setFormErrors({})
     setForm({
       name: m.name,
       category: m.category,
@@ -155,34 +176,84 @@ export default function MaterialsPage() {
     setDialogOpen(true)
   }
 
-  function handleDelete(id: string) {
-    setMaterials((prev) => prev.filter((m) => m.id !== id))
+  async function handleDelete(id: string) {
+    try {
+      const mat = materials.find((m) => m.id === id)
+      await deleteMaterial(id)
+      logActivity({ action: "delete", entity_type: "material", entity_id: id, entity_name: mat?.name || "Material" })
+      toast.success("Material deleted")
+    } catch (e: any) {
+      toast.error("Failed to delete: " + e.message)
+    }
+    setEditingId(null)
   }
 
-  function handleSave() {
-    const now = new Date().toISOString()
-    if (editingId) {
-      setMaterials((prev) =>
-        prev.map((m) =>
-          m.id === editingId
-            ? { ...m, ...form, total_cost: form.quantity_purchased * form.cost_per_unit, updated_at: now }
-            : m
-        )
-      )
-    } else {
-      const newMaterial: Material = {
-        id: `mat-${Date.now()}`,
-        ...form,
-        total_cost: form.quantity_purchased * form.cost_per_unit,
-        created_at: now,
-        updated_at: now,
-      }
-      setMaterials((prev) => [...prev, newMaterial])
+  async function handleSave() {
+    const result = materialSchema.safeParse(form)
+    if (!result.success) {
+      const errors: Record<string, string> = {}
+      result.error.issues.forEach((issue) => {
+        const field = issue.path[0] as string
+        errors[field] = issue.message
+      })
+      setFormErrors(errors)
+      return
     }
-    setDialogOpen(false)
+    setFormErrors({})
+    try {
+      if (editingId) {
+        await updateMaterial(editingId, {
+          name: result.data.name,
+          category: result.data.category,
+          project_id: result.data.project_id,
+          quantity_purchased: result.data.quantity_purchased,
+          quantity_used: result.data.quantity_used,
+          unit: result.data.unit,
+          cost_per_unit: result.data.cost_per_unit,
+          vendor: result.data.vendor || "",
+          reorder_level: result.data.reorder_level,
+        })
+        logActivity({ action: "update", entity_type: "material", entity_id: editingId, entity_name: result.data.name })
+        toast.success("Material updated")
+      } else {
+        const mat = await createMaterial({
+          name: result.data.name,
+          category: result.data.category,
+          project_id: result.data.project_id,
+          quantity_purchased: result.data.quantity_purchased,
+          quantity_used: result.data.quantity_used,
+          unit: result.data.unit,
+          cost_per_unit: result.data.cost_per_unit,
+          vendor: result.data.vendor || "",
+          reorder_level: result.data.reorder_level,
+        })
+        logActivity({ action: "create", entity_type: "material", entity_id: mat.id, entity_name: mat.name })
+        toast.success("Material added")
+      }
+      setDialogOpen(false)
+    } catch (e: any) {
+      toast.error("Failed to save: " + e.message)
+    }
+  }
+
+  if (isLoading) {
+    return <TablePageSkeleton columns={6} />
+  }
+
+  if (materialsError || projectsError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Materials</h1>
+          <p className="text-muted-foreground">Track and manage construction materials</p>
+        </div>
+        <ErrorState message={materialsError || projectsError || "Failed to load materials"} onRetry={refetchMaterials || refetchProjects} />
+      </div>
+    )
   }
 
   return (
+    <RoleGuard allowedRoles={["owner", "site_engineer"]}>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -191,10 +262,12 @@ export default function MaterialsPage() {
             Manage inventory across all projects
           </p>
         </div>
+        {canEdit && (
         <Button onClick={handleAdd}>
           <Plus className="mr-1.5 h-4 w-4" />
           Add Material
         </Button>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -309,7 +382,7 @@ export default function MaterialsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Projects</SelectItem>
-                {mockProjects.map((p) => (
+                {projects.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name}
                   </SelectItem>
@@ -325,7 +398,7 @@ export default function MaterialsPage() {
         <CardHeader>
           <CardTitle className="text-lg">Materials Inventory</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -379,6 +452,7 @@ export default function MaterialsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
+                        {canEdit && (
                         <div className="flex items-center justify-end gap-1">
                           <Button
                             variant="ghost"
@@ -387,6 +461,7 @@ export default function MaterialsPage() {
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
+                          {admin && (
                           <Button
                             variant="ghost"
                             size="icon-sm"
@@ -394,7 +469,9 @@ export default function MaterialsPage() {
                           >
                             <Trash2 className="h-3.5 w-3.5 text-destructive" />
                           </Button>
+                          )}
                         </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   )
@@ -406,6 +483,7 @@ export default function MaterialsPage() {
       </Card>
 
       {/* Add/Edit Dialog */}
+      {canEdit && (
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -418,7 +496,7 @@ export default function MaterialsPage() {
                 : "Fill in the details to add a new material."}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-2">
+            <div className="grid gap-4 py-2">
             <div className="grid gap-2">
               <Label htmlFor="name">Material Name</Label>
               <Input
@@ -426,7 +504,9 @@ export default function MaterialsPage() {
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="e.g. OPC 53 Cement"
+                className={formErrors.name ? "border-destructive" : ""}
               />
+              {formErrors.name && <p className="text-xs text-destructive">{formErrors.name}</p>}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
@@ -435,7 +515,7 @@ export default function MaterialsPage() {
                   value={form.category}
                   onValueChange={(val) => setForm({ ...form, category: val ?? "" })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={formErrors.category ? "border-destructive" : ""}>
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent>
@@ -446,6 +526,7 @@ export default function MaterialsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {formErrors.category && <p className="text-xs text-destructive">{formErrors.category}</p>}
               </div>
               <div className="grid gap-2">
                 <Label>Project</Label>
@@ -453,20 +534,21 @@ export default function MaterialsPage() {
                   value={form.project_id}
                   onValueChange={(val) => setForm({ ...form, project_id: val ?? "" })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={formErrors.project_id ? "border-destructive" : ""}>
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockProjects.map((p) => (
+                    {projects.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {formErrors.project_id && <p className="text-xs text-destructive">{formErrors.project_id}</p>}
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="qty_purchased">Qty Purchased</Label>
                 <Input
@@ -501,7 +583,7 @@ export default function MaterialsPage() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="unit">Unit</Label>
                 <Input
@@ -554,6 +636,8 @@ export default function MaterialsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </div>
+    </RoleGuard>
   )
 }

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useStore } from "@/lib/store"
+import { useNotifications } from "@/lib/hooks/use-data"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,7 +30,9 @@ const pageTitles: Record<string, string> = {
 export function Header() {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
-  const { sidebarOpen, toggleSidebar, notifications } = useStore()
+  const { sidebarOpen, toggleSidebar } = useStore()
+  const { data: rawNotifications } = useNotifications()
+  const notifications = rawNotifications ?? []
 
   const unreadCount = notifications.filter((n) => !n.is_read).length
   const pageTitle = pageTitles[pathname] || "BuildTrack AI"

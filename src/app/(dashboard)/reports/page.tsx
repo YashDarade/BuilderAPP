@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Select,
   SelectContent,
@@ -56,15 +57,22 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
-import type { ProgressReport, Material, Expense } from "@/lib/types"
+import type { ProgressReport } from "@/lib/types"
 import {
-  mockProgressReports,
-  mockMaterials,
-  mockExpenses,
-  mockProjects,
-  mockMonthlyExpenses,
-  mockBudgetConsumption,
-} from "@/lib/mock-data"
+  useReports,
+  useMaterials,
+  useExpenses,
+  useProjects,
+  useMonthlyExpenses,
+  useBudgetConsumption,
+  createReport,
+  logActivity,
+} from "@/lib/hooks/use-data"
+import { useStore } from "@/lib/store"
+import { isAdmin } from "@/lib/supabase/auth"
+import { reportSchema } from "@/lib/validation-schemas"
+import { ErrorState } from "@/components/error-state"
+import { toast } from "sonner"
 
 function formatCurrencyINR(amount: number): string {
   if (amount >= 10000000) {
@@ -76,8 +84,8 @@ function formatCurrencyINR(amount: number): string {
   return `₹${amount.toLocaleString("en-IN")}`
 }
 
-function getProjectName(projectId: string): string {
-  return mockProjects.find((p) => p.id === projectId)?.name || "Unknown"
+function getProjectName(projectId: string, projects: { id: string; name: string }[]): string {
+  return projects.find((p) => p.id === projectId)?.name || "Unknown"
 }
 
 function formatDate(dateStr: string): string {
@@ -108,17 +116,39 @@ const emptyReportForm = {
 }
 
 export default function ReportsPage() {
-  const [reports, setReports] = useState<ProgressReport[]>(mockProgressReports)
+  const { currentUser } = useStore()
+  const admin = isAdmin(currentUser)
+  const role = currentUser?.role || "owner"
+  const canCreate = admin || role === "site_engineer"
+  const isClient = role === "client"
+
+  const { data: rawReports, isLoading: reportsLoading, error: reportsError, refetch: refetchReports } = useReports()
+  const reportsData = rawReports ?? []
+  const { data: rawMaterials, isLoading: materialsLoading } = useMaterials()
+  const materials = rawMaterials ?? []
+  const { data: rawExpenses, isLoading: expensesLoading } = useExpenses()
+  const expenses = rawExpenses ?? []
+  const { data: rawProjects, isLoading: projectsLoading } = useProjects()
+  const projects = rawProjects ?? []
+  const { data: rawMonthlyExpenses } = useMonthlyExpenses()
+  const monthlyExpenses = rawMonthlyExpenses ?? []
+  const { data: rawBudgetConsumption } = useBudgetConsumption()
+  const budgetConsumption = rawBudgetConsumption ?? []
+
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [selectedReport, setSelectedReport] = useState<ProgressReport | null>(null)
   const [form, setForm] = useState(emptyReportForm)
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [expenseMonthFilter, setExpenseMonthFilter] = useState("all")
   const [materialProjectFilter, setMaterialProjectFilter] = useState("all")
 
+  const reports = reportsData
+  const isLoading = reportsLoading || materialsLoading || expensesLoading || projectsLoading
+
   const monthlyExpenseData = useMemo(() => {
     const aggregated: Record<string, number> = {}
-    mockExpenses.forEach((e) => {
+    expenses.forEach((e) => {
       const d = new Date(e.date)
       const key = `${d.toLocaleString("en-US", { month: "short" })} ${d.getFullYear()}`
       aggregated[key] = (aggregated[key] || 0) + e.amount
@@ -127,12 +157,12 @@ export default function ReportsPage() {
       month: m,
       amount: aggregated[m] || 0,
     }))
-  }, [])
+  }, [expenses])
 
   const filteredMaterials = useMemo(() => {
-    if (materialProjectFilter === "all") return mockMaterials
-    return mockMaterials.filter((m) => m.project_id === materialProjectFilter)
-  }, [materialProjectFilter])
+    if (materialProjectFilter === "all") return materials
+    return materials.filter((m) => m.project_id === materialProjectFilter)
+  }, [materials, materialProjectFilter])
 
   const totalMaterialCost = useMemo(
     () => filteredMaterials.reduce((acc, m) => acc + m.total_cost, 0),
@@ -144,29 +174,75 @@ export default function ReportsPage() {
     [filteredMaterials]
   )
 
-  function handleCreateReport() {
-    const now = new Date().toISOString()
-    const newReport: ProgressReport = {
-      id: `rpt-${Date.now()}`,
-      project_id: form.project_id,
-      report_date: form.report_date,
-      work_completed: form.work_completed,
-      material_used: form.material_used,
-      issues: form.issues,
-      delays: form.delays,
-      tomorrow_plan: form.tomorrow_plan,
-      photos: [],
-      created_by: "user-001",
-      created_at: now,
+  async function handleCreateReport() {
+    const result = reportSchema.safeParse(form)
+    if (!result.success) {
+      const errors: Record<string, string> = {}
+      result.error.issues.forEach((issue) => {
+        const field = issue.path[0] as string
+        errors[field] = issue.message
+      })
+      setFormErrors(errors)
+      return
     }
-    setReports((prev) => [newReport, ...prev])
-    setCreateDialogOpen(false)
-    setForm(emptyReportForm)
+    setFormErrors({})
+    try {
+      const report = await createReport({
+        project_id: result.data.project_id,
+        report_date: result.data.report_date,
+        work_completed: result.data.work_completed,
+        material_used: result.data.material_used || "",
+        issues: result.data.issues || "",
+        delays: result.data.delays || "",
+        tomorrow_plan: result.data.tomorrow_plan || "",
+        photos: [],
+        created_by: currentUser?.id || "",
+      })
+      logActivity({ action: "create", entity_type: "report", entity_id: report.id, entity_name: `Report - ${result.data.report_date}` })
+      toast.success("Report created successfully")
+      setCreateDialogOpen(false)
+      setForm(emptyReportForm)
+    } catch (e: any) {
+      toast.error("Failed to create report: " + e.message)
+    }
   }
 
   function viewReportDetail(report: ProgressReport) {
     setSelectedReport(report)
     setDetailDialogOpen(true)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-9 w-28 mb-2" />
+          <Skeleton className="h-5 w-96" />
+        </div>
+        <Skeleton className="h-10 w-[400px]" />
+        <div className="space-y-4 mt-6">
+          {[...Array(3)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-4">
+                <Skeleton className="h-20 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (reportsError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
+          <p className="text-muted-foreground">Manage progress, expense, material, and client reports</p>
+        </div>
+        <ErrorState message={reportsError} onRetry={refetchReports} />
+      </div>
+    )
   }
 
   return (
@@ -206,10 +282,12 @@ export default function ReportsPage() {
             <p className="text-sm text-muted-foreground">
               Daily work progress reports from site engineers
             </p>
+            {canCreate && (
             <Button onClick={() => setCreateDialogOpen(true)}>
               <Plus className="mr-1.5 h-4 w-4" />
               Create Report
             </Button>
+            )}
           </div>
 
           <div className="grid gap-4">
@@ -234,7 +312,7 @@ export default function ReportsPage() {
                             {formatDate(report.report_date)}
                           </span>
                           <Badge variant="outline">
-                            {getProjectName(report.project_id)}
+                            {getProjectName(report.project_id, projects)}
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground line-clamp-2">
@@ -297,7 +375,7 @@ export default function ReportsPage() {
                     <p className="text-sm text-muted-foreground">Total Expenses</p>
                     <p className="text-2xl font-bold">
                       {formatCurrencyINR(
-                        mockExpenses.reduce((a, e) => a + e.amount, 0)
+                        expenses.reduce((a, e) => a + e.amount, 0)
                       )}
                     </p>
                   </div>
@@ -314,7 +392,7 @@ export default function ReportsPage() {
                     <p className="text-sm text-muted-foreground">This Month</p>
                     <p className="text-2xl font-bold">
                       {formatCurrencyINR(
-                        mockExpenses
+                        expenses
                           .filter((e) => {
                             const d = new Date(e.date)
                             const now = new Date()
@@ -340,7 +418,7 @@ export default function ReportsPage() {
                     <p className="text-sm text-muted-foreground">Avg Monthly</p>
                     <p className="text-2xl font-bold">
                       {formatCurrencyINR(
-                        mockExpenses.reduce((a, e) => a + e.amount, 0) / 6
+                        expenses.reduce((a, e) => a + e.amount, 0) / 6
                       )}
                     </p>
                   </div>
@@ -411,7 +489,7 @@ export default function ReportsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mockBudgetConsumption.map((bc) => (
+                  {budgetConsumption.map((bc) => (
                     <TableRow key={bc.project_id}>
                       <TableCell className="font-medium">{bc.project_name}</TableCell>
                       <TableCell className="text-right">
@@ -458,7 +536,7 @@ export default function ReportsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Projects</SelectItem>
-                  {mockProjects.map((p) => (
+                  {projects.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name}
                     </SelectItem>
@@ -526,7 +604,7 @@ export default function ReportsPage() {
             <CardHeader>
               <CardTitle className="text-lg">Material Usage Summary</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -636,11 +714,11 @@ export default function ReportsPage() {
           </div>
 
           <div className="grid gap-6">
-            {mockProjects.map((project) => {
-              const projectExpenses = mockExpenses.filter(
+            {projects.map((project) => {
+              const projectExpenses = expenses.filter(
                 (e) => e.project_id === project.id
               )
-              const projectMaterials = mockMaterials.filter(
+              const projectMaterials = materials.filter(
                 (m) => m.project_id === project.id
               )
               const totalSpent = projectExpenses.reduce(
@@ -761,17 +839,18 @@ export default function ReportsPage() {
                     setForm({ ...form, project_id: v ?? "" })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={formErrors.project_id ? "border-destructive" : ""}>
                     <SelectValue placeholder="Select project" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockProjects.map((p) => (
+                    {projects.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {formErrors.project_id && <p className="text-xs text-destructive">{formErrors.project_id}</p>}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="report_date">Report Date</Label>
@@ -782,7 +861,9 @@ export default function ReportsPage() {
                   onChange={(e) =>
                     setForm({ ...form, report_date: e.target.value })
                   }
+                  className={formErrors.report_date ? "border-destructive" : ""}
                 />
+                {formErrors.report_date && <p className="text-xs text-destructive">{formErrors.report_date}</p>}
               </div>
             </div>
             <div className="grid gap-2">
@@ -794,7 +875,9 @@ export default function ReportsPage() {
                   setForm({ ...form, work_completed: e.target.value })
                 }
                 placeholder="Describe the work completed today..."
+                className={formErrors.work_completed ? "border-destructive" : ""}
               />
+              {formErrors.work_completed && <p className="text-xs text-destructive">{formErrors.work_completed}</p>}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="material_used">Material Used</Label>
@@ -807,7 +890,7 @@ export default function ReportsPage() {
                 placeholder="List materials used today..."
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="issues">Issues</Label>
                 <Textarea
@@ -866,7 +949,7 @@ export default function ReportsPage() {
             <DialogTitle>Progress Report</DialogTitle>
             <DialogDescription>
               {selectedReport &&
-                `${formatDate(selectedReport.report_date)} - ${getProjectName(selectedReport.project_id)}`}
+                `${formatDate(selectedReport.report_date)} - ${getProjectName(selectedReport.project_id, projects)}`}
             </DialogDescription>
           </DialogHeader>
           {selectedReport && (
@@ -883,7 +966,7 @@ export default function ReportsPage() {
                 </p>
                 <p className="text-sm">{selectedReport.material_used}</p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">
                     Issues

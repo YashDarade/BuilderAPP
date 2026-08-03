@@ -21,21 +21,22 @@ import {
 } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import type { Notification, NotificationType } from "@/lib/types"
-import { mockNotifications } from "@/lib/mock-data"
+import { useNotifications, markNotificationRead, markAllNotificationsRead } from "@/lib/hooks/use-data"
+import { ErrorState } from "@/components/error-state"
+import { ListSkeleton } from "@/components/page-skeletons"
+import { EmptyState } from "@/components/empty-state"
+import { toast } from "sonner"
 
 function getNotificationIcon(type: NotificationType) {
   switch (type) {
-    case "material_low":
+    case "low_stock":
       return <Package className="h-4 w-4 text-orange-500" />
-    case "budget_alert":
+    case "budget_warning":
       return <AlertTriangle className="h-4 w-4 text-red-500" />
-    case "report_generated":
+    case "new_report":
       return <FileText className="h-4 w-4 text-blue-500" />
-    case "progress_update":
-    case "project_update":
+    case "milestone":
       return <CheckCircle className="h-4 w-4 text-green-500" />
-    case "bill_scanned":
-      return <FileText className="h-4 w-4 text-purple-500" />
     default:
       return <Bell className="h-4 w-4 text-muted-foreground" />
   }
@@ -43,26 +44,24 @@ function getNotificationIcon(type: NotificationType) {
 
 function getNotificationBadge(type: NotificationType) {
   switch (type) {
-    case "material_low":
+    case "low_stock":
       return <Badge variant="outline" className="border-orange-500 text-orange-500">Low Stock</Badge>
-    case "budget_alert":
+    case "budget_warning":
       return <Badge variant="destructive">Budget Alert</Badge>
-    case "report_generated":
+    case "new_report":
       return <Badge variant="outline" className="border-blue-500 text-blue-500">Report</Badge>
-    case "progress_update":
+    case "milestone":
       return <Badge variant="outline" className="border-green-500 text-green-500">Progress</Badge>
-    case "project_update":
-      return <Badge variant="outline" className="border-green-500 text-green-500">Project</Badge>
-    case "bill_scanned":
-      return <Badge variant="outline" className="border-purple-500 text-purple-500">Bill</Badge>
     default:
       return <Badge variant="outline">Other</Badge>
   }
 }
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
+  const { data: rawNotifications, isLoading, error, refetch } = useNotifications()
+  const notifications = rawNotifications ?? []
   const [filter, setFilter] = useState<"all" | "unread" | "read">("all")
+  const [updating, setUpdating] = useState<string | null>(null)
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.is_read).length,
@@ -82,14 +81,29 @@ export default function NotificationsPage() {
       )
   }, [notifications, filter])
 
-  function markAsRead(id: string) {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-    )
+  async function handleMarkAsRead(id: string) {
+    setUpdating(id)
+    try {
+      await markNotificationRead(id)
+      refetch()
+    } catch (e: any) {
+      toast.error("Failed to mark as read")
+    } finally {
+      setUpdating(null)
+    }
   }
 
-  function markAllAsRead() {
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+  async function handleMarkAllAsRead() {
+    setUpdating("all")
+    try {
+      await markAllNotificationsRead()
+      refetch()
+      toast.success("All notifications marked as read")
+    } catch (e: any) {
+      toast.error("Failed to mark all as read")
+    } finally {
+      setUpdating(null)
+    }
   }
 
   function timeAgo(dateStr: string): string {
@@ -98,6 +112,30 @@ export default function NotificationsPage() {
     } catch {
       return "recently"
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Notifications</h1>
+          <p className="text-muted-foreground">Stay updated on project alerts, reports, and activities</p>
+        </div>
+        <ListSkeleton rows={6} />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Notifications</h1>
+          <p className="text-muted-foreground">Stay updated on project alerts, reports, and activities</p>
+        </div>
+        <ErrorState message={error} onRetry={refetch} />
+      </div>
+    )
   }
 
   return (
@@ -111,9 +149,9 @@ export default function NotificationsPage() {
         </div>
         <div className="flex items-center gap-2">
           {unreadCount > 0 && (
-            <Button variant="outline" size="sm" onClick={markAllAsRead}>
+            <Button variant="outline" size="sm" onClick={handleMarkAllAsRead} disabled={updating === "all"}>
               <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
-              Mark All as Read
+              {updating === "all" ? "Marking..." : "Mark All as Read"}
             </Button>
           )}
         </div>
@@ -156,15 +194,11 @@ export default function NotificationsPage() {
         </CardHeader>
         <CardContent>
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <BellOff className="mb-3 h-10 w-10 text-muted-foreground" />
-              <p className="text-sm font-medium">No notifications</p>
-              <p className="text-xs text-muted-foreground">
-                {filter === "unread"
-                  ? "You're all caught up!"
-                  : "No notifications to display"}
-              </p>
-            </div>
+            <EmptyState
+              type="notifications"
+              title="No notifications"
+              description={filter === "unread" ? "You're all caught up!" : "No notifications to display"}
+            />
           ) : (
             <div className="space-y-2">
               {filtered.map((notification) => (
@@ -175,7 +209,7 @@ export default function NotificationsPage() {
                       ? "border-l-4 border-l-primary bg-primary/5"
                       : ""
                   }`}
-                  onClick={() => markAsRead(notification.id)}
+                  onClick={() => handleMarkAsRead(notification.id)}
                 >
                   <div className="mt-0.5 shrink-0">
                     {getNotificationIcon(notification.type)}

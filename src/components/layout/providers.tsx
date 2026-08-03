@@ -5,7 +5,7 @@ import { Toaster } from "sonner"
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider attribute="data-theme" defaultTheme="system" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       {children}
       <Toaster richColors position="top-right" />
     </ThemeProvider>

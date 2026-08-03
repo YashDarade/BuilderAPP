@@ -55,11 +55,14 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import type { Expense, ExpenseCategory } from "@/lib/types"
-import {
-  mockExpenses,
-  mockProjects,
-  mockUsers,
-} from "@/lib/mock-data"
+import { useExpenses, useProjects, createExpense, updateExpense, deleteExpense } from "@/lib/hooks/use-data"
+import { useStore } from "@/lib/store"
+import { isAdmin } from "@/lib/supabase/auth"
+import { expenseSchema } from "@/lib/validation-schemas"
+import { ErrorState } from "@/components/error-state"
+import { TablePageSkeleton } from "@/components/page-skeletons"
+import { logActivity } from "@/lib/hooks/use-data"
+import { toast } from "sonner"
 
 const EXPENSE_CATEGORIES: ExpenseCategory[] = [
   "Labor",
@@ -69,7 +72,6 @@ const EXPENSE_CATEGORIES: ExpenseCategory[] = [
   "Electrical",
   "Transport",
   "Machinery",
-  "Finishing",
   "Miscellaneous",
 ]
 
@@ -83,14 +85,6 @@ function formatCurrencyINR(amount: number): string {
   return `₹${amount.toLocaleString("en-IN")}`
 }
 
-function getProjectName(projectId: string): string {
-  return mockProjects.find((p) => p.id === projectId)?.name || "Unknown"
-}
-
-function getUserName(userId: string): string {
-  return mockUsers.find((u) => u.id === userId)?.full_name || "Unknown"
-}
-
 const CATEGORY_COLORS: Record<string, string> = {
   Labor: "#3b82f6",
   Cement: "#6b7280",
@@ -99,7 +93,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   Electrical: "#f59e0b",
   Transport: "#8b5cf6",
   Machinery: "#ec4899",
-  Finishing: "#22c55e",
   Miscellaneous: "#64748b",
 }
 
@@ -114,7 +107,15 @@ const emptyForm = {
 }
 
 export default function ExpensesPage() {
-  const [expenses, setExpenses] = useState<Expense[]>(mockExpenses)
+  const { currentUser } = useStore()
+  const admin = isAdmin(currentUser)
+  const role = currentUser?.role || "owner"
+  const canAdd = admin || role === "site_engineer"
+
+  const { data: rawExpenses, isLoading: expensesLoading, error: expensesError, refetch: refetchExpenses } = useExpenses()
+  const expenses = rawExpenses ?? []
+  const { data: rawProjects, isLoading: projectsLoading, error: projectsError, refetch: refetchProjects } = useProjects()
+  const projects = rawProjects ?? []
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [projectFilter, setProjectFilter] = useState("all")
@@ -123,8 +124,14 @@ export default function ExpensesPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
+  const isLoading = expensesLoading || projectsLoading
   const now = new Date()
+
+  function getProjectName(projectId: string): string {
+    return projects.find((p) => p.id === projectId)?.name || "Unknown"
+  }
 
   const filtered = useMemo(() => {
     return expenses.filter((e) => {
@@ -204,11 +211,13 @@ export default function ExpensesPage() {
   function handleAdd() {
     setEditingId(null)
     setForm(emptyForm)
+    setFormErrors({})
     setDialogOpen(true)
   }
 
   function handleEdit(e: Expense) {
     setEditingId(e.id)
+    setFormErrors({})
     setForm({
       amount: e.amount,
       category: e.category,
@@ -221,31 +230,76 @@ export default function ExpensesPage() {
     setDialogOpen(true)
   }
 
-  function handleDelete(id: string) {
-    setExpenses((prev) => prev.filter((e) => e.id !== id))
+  async function handleDelete(id: string) {
+    try {
+      const exp = expenses.find((e) => e.id === id)
+      await deleteExpense(id)
+      logActivity({ action: "delete", entity_type: "expense", entity_id: id, entity_name: exp?.description || "Expense" })
+      toast.success("Expense deleted")
+    } catch (e: any) {
+      toast.error("Failed to delete: " + e.message)
+    }
+    setEditingId(null)
   }
 
-  function handleSave() {
-    const now = new Date().toISOString()
-    if (editingId) {
-      setExpenses((prev) =>
-        prev.map((e) =>
-          e.id === editingId
-            ? { ...e, ...form, category: form.category as ExpenseCategory }
-            : e
-        )
-      )
-    } else {
-      const newExpense: Expense = {
-        id: `exp-${Date.now()}`,
-        ...form,
-        category: form.category as ExpenseCategory,
-        created_by: "user-001",
-        created_at: now,
-      }
-      setExpenses((prev) => [...prev, newExpense])
+  async function handleSave() {
+    const result = expenseSchema.safeParse(form)
+    if (!result.success) {
+      const errors: Record<string, string> = {}
+      result.error.issues.forEach((issue) => {
+        const field = issue.path[0] as string
+        errors[field] = issue.message
+      })
+      setFormErrors(errors)
+      return
     }
-    setDialogOpen(false)
+    setFormErrors({})
+    try {
+      if (editingId) {
+        await updateExpense(editingId, {
+          description: result.data.description,
+          amount: result.data.amount,
+          category: result.data.category as ExpenseCategory,
+          project_id: result.data.project_id,
+          vendor: result.data.vendor || "",
+          date: result.data.date,
+        })
+        logActivity({ action: "update", entity_type: "expense", entity_id: editingId, entity_name: result.data.description })
+        toast.success("Expense updated")
+      } else {
+        const exp = await createExpense({
+          description: result.data.description,
+          amount: result.data.amount,
+          category: result.data.category as ExpenseCategory,
+          project_id: result.data.project_id,
+          vendor: result.data.vendor || "",
+          date: result.data.date,
+          bill_url: null,
+          created_by: currentUser?.id || "",
+        })
+        logActivity({ action: "create", entity_type: "expense", entity_id: exp.id, entity_name: exp.description })
+        toast.success("Expense added")
+      }
+      setDialogOpen(false)
+    } catch (e: any) {
+      toast.error("Failed to save: " + e.message)
+    }
+  }
+
+  if (isLoading) {
+    return <TablePageSkeleton columns={6} />
+  }
+
+  if (expensesError || projectsError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Expenses</h1>
+          <p className="text-muted-foreground">Track and manage project expenses</p>
+        </div>
+        <ErrorState message={expensesError || projectsError || "Failed to load expenses"} onRetry={refetchExpenses || refetchProjects} />
+      </div>
+    )
   }
 
   return (
@@ -257,10 +311,12 @@ export default function ExpensesPage() {
             Track and manage project expenses
           </p>
         </div>
+        {canAdd && (
         <Button onClick={handleAdd}>
           <Plus className="mr-1.5 h-4 w-4" />
           Add Expense
         </Button>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -398,7 +454,7 @@ export default function ExpensesPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Projects</SelectItem>
-                {mockProjects.map((p) => (
+                {projects.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name}
                   </SelectItem>
@@ -428,7 +484,7 @@ export default function ExpensesPage() {
         <CardHeader>
           <CardTitle className="text-lg">Expense Records</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -438,14 +494,13 @@ export default function ExpensesPage() {
                 <TableHead>Project</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Vendor</TableHead>
-                <TableHead>Created By</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                     No expenses found.
                   </TableCell>
                 </TableRow>
@@ -482,8 +537,8 @@ export default function ExpensesPage() {
                         {formatCurrencyINR(e.amount)}
                       </TableCell>
                       <TableCell>{e.vendor}</TableCell>
-                      <TableCell>{getUserName(e.created_by)}</TableCell>
                       <TableCell className="text-right">
+                        {canAdd && (
                         <div className="flex items-center justify-end gap-1">
                           <Button
                             variant="ghost"
@@ -492,6 +547,7 @@ export default function ExpensesPage() {
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
+                          {admin && (
                           <Button
                             variant="ghost"
                             size="icon-sm"
@@ -499,7 +555,9 @@ export default function ExpensesPage() {
                           >
                             <Trash2 className="h-3.5 w-3.5 text-destructive" />
                           </Button>
+                          )}
                         </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
@@ -510,6 +568,7 @@ export default function ExpensesPage() {
       </Card>
 
       {/* Add/Edit Dialog */}
+      {canAdd && (
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -532,7 +591,9 @@ export default function ExpensesPage() {
                   setForm({ ...form, description: e.target.value })
                 }
                 placeholder="e.g. Foundation labor charges"
+                className={formErrors.description ? "border-destructive" : ""}
               />
+              {formErrors.description && <p className="text-xs text-destructive">{formErrors.description}</p>}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
@@ -544,7 +605,9 @@ export default function ExpensesPage() {
                   onChange={(e) =>
                     setForm({ ...form, amount: Number(e.target.value) })
                   }
+                  className={formErrors.amount ? "border-destructive" : ""}
                 />
+                {formErrors.amount && <p className="text-xs text-destructive">{formErrors.amount}</p>}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="date">Date</Label>
@@ -555,7 +618,9 @@ export default function ExpensesPage() {
                   onChange={(e) =>
                     setForm({ ...form, date: e.target.value })
                   }
+                  className={formErrors.date ? "border-destructive" : ""}
                 />
+                {formErrors.date && <p className="text-xs text-destructive">{formErrors.date}</p>}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -567,7 +632,7 @@ export default function ExpensesPage() {
                     setForm({ ...form, category: (val ?? "") as ExpenseCategory })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={formErrors.category ? "border-destructive" : ""}>
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent>
@@ -578,6 +643,7 @@ export default function ExpensesPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {formErrors.category && <p className="text-xs text-destructive">{formErrors.category}</p>}
               </div>
               <div className="grid gap-2">
                 <Label>Project</Label>
@@ -587,17 +653,18 @@ export default function ExpensesPage() {
                     setForm({ ...form, project_id: val ?? "" })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={formErrors.project_id ? "border-destructive" : ""}>
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockProjects.map((p) => (
+                    {projects.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {formErrors.project_id && <p className="text-xs text-destructive">{formErrors.project_id}</p>}
               </div>
             </div>
             <div className="grid gap-2">
@@ -629,6 +696,7 @@ export default function ExpensesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   )
 }

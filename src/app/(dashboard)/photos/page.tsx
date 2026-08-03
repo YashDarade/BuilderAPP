@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useMemo, useRef } from "react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Select,
   SelectContent,
@@ -21,9 +22,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
-import { mockSitePhotos, mockProjects, mockUsers } from "@/lib/mock-data"
+import { usePhotos, useProjects, uploadPhoto, deletePhoto, logActivity } from "@/lib/hooks/use-data"
+import { useStore } from "@/lib/store"
+import { isAdmin } from "@/lib/supabase/auth"
+import { ErrorState } from "@/components/error-state"
+import { EmptyState } from "@/components/empty-state"
 import type { PhotoCategory } from "@/lib/types"
 import {
   Upload,
@@ -33,8 +37,11 @@ import {
   Search,
   Calendar,
   User,
-  MapPin,
+  Trash2,
+  X,
+  Loader2,
 } from "lucide-react"
+import { toast } from "sonner"
 
 const PHOTO_CATEGORIES: PhotoCategory[] = [
   "Foundation",
@@ -44,7 +51,6 @@ const PHOTO_CATEGORIES: PhotoCategory[] = [
   "Electrical",
   "Roofing",
   "Finishing",
-  "Structure",
 ]
 
 const CATEGORY_COLORS: Record<PhotoCategory, string> = {
@@ -55,15 +61,6 @@ const CATEGORY_COLORS: Record<PhotoCategory, string> = {
   Electrical: "bg-yellow-600/10 text-yellow-700 border-yellow-600/20",
   Roofing: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
   Finishing: "bg-purple-500/10 text-purple-600 border-purple-500/20",
-  Structure: "bg-gray-500/10 text-gray-600 border-gray-500/20",
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  })
 }
 
 function formatDateGroup(dateStr: string): string {
@@ -74,37 +71,49 @@ function formatDateGroup(dateStr: string): string {
   })
 }
 
-function getUserName(userId: string): string {
-  return mockUsers.find((u) => u.id === userId)?.full_name || "Unknown"
-}
-
-function getProjectName(projectId: string): string {
-  return mockProjects.find((p) => p.id === projectId)?.name || "Unknown"
+function getProjectName(projectId: string, projects: { id: string; name: string }[]): string {
+  return projects.find((p) => p.id === projectId)?.name || "Unknown"
 }
 
 export default function PhotosPage() {
-  const [viewMode, setViewMode] = useState<"grid" | "timeline">("grid")
+  const { currentUser } = useStore()
+  const admin = isAdmin(currentUser)
+  const role = currentUser?.role || "owner"
+  const canUpload = admin || role === "site_engineer"
+
+  const { data: rawPhotosData, isLoading: photosLoading, error: photosError, refetch: refetchPhotos } = usePhotos()
+  const photosData = rawPhotosData ?? []
+  const { data: rawProjects, isLoading: projectsLoading, error: projectsError, refetch: refetchProjects } = useProjects()
+  const projects = rawProjects ?? []
+
+  const [viewMode, setViewMode] = useState<"grid" | "timeline">(role === "client" ? "timeline" : "grid")
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [projectFilter, setProjectFilter] = useState<string>("all")
   const [dateFilter, setDateFilter] = useState<string>("all")
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [newPhoto, setNewPhoto] = useState({
     notes: "",
     category: "Foundation" as PhotoCategory,
     project_id: "",
   })
+  const [uploading, setUploading] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const isLoading = photosLoading || projectsLoading
 
   const filteredPhotos = useMemo(() => {
-    let photos = [...mockSitePhotos]
+    let photos = [...photosData]
 
     if (search) {
       const q = search.toLowerCase()
       photos = photos.filter(
         (p) =>
           p.notes.toLowerCase().includes(q) ||
-          getUserName(p.uploaded_by).toLowerCase().includes(q) ||
-          getProjectName(p.project_id).toLowerCase().includes(q)
+          getProjectName(p.project_id, projects).toLowerCase().includes(q)
       )
     }
 
@@ -142,7 +151,7 @@ export default function PhotosPage() {
     )
 
     return photos
-  }, [search, categoryFilter, projectFilter, dateFilter])
+  }, [photosData, projects, search, categoryFilter, projectFilter, dateFilter])
 
   const photosByDate = useMemo(() => {
     const groups: Record<string, typeof filteredPhotos> = {}
@@ -158,9 +167,109 @@ export default function PhotosPage() {
     )
   }, [filteredPhotos])
 
-  function handleUpload() {
-    setUploadDialogOpen(false)
-    setNewPhoto({ notes: "", category: "Foundation", project_id: "" })
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file")
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File must be under 10MB")
+      return
+    }
+    setSelectedFile(file)
+    setPreviewUrl(URL.createObjectURL(file))
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    const file = e.dataTransfer.files[0]
+    if (!file) return
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file")
+      return
+    }
+    setSelectedFile(file)
+    setPreviewUrl(URL.createObjectURL(file))
+  }
+
+  function clearFileSelection() {
+    setSelectedFile(null)
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setPreviewUrl(null)
+    if (fileInputRef.current) fileInputRef.current.value = ""
+  }
+
+  async function handleUpload() {
+    if (!selectedFile || !newPhoto.project_id) {
+      toast.error("Please select a photo and project")
+      return
+    }
+    setUploading(true)
+    try {
+      const photo = await uploadPhoto(selectedFile, newPhoto.project_id, newPhoto.category, newPhoto.notes)
+      logActivity({ action: "create", entity_type: "photo", entity_id: photo.id, entity_name: newPhoto.category })
+      toast.success("Photo uploaded successfully")
+      clearFileSelection()
+      setNewPhoto({ notes: "", category: "Foundation", project_id: "" })
+      setUploadDialogOpen(false)
+    } catch (err: any) {
+      toast.error(err.message || "Failed to upload photo")
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handleDeletePhoto(photoId: string) {
+    if (!confirm("Delete this photo?")) return
+    setDeletingId(photoId)
+    try {
+      await deletePhoto(photoId)
+      logActivity({ action: "delete", entity_type: "photo", entity_id: photoId, entity_name: "Site Photo" })
+      toast.success("Photo deleted")
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete photo")
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <Skeleton className="h-9 w-32 mb-2" />
+            <Skeleton className="h-5 w-72" />
+          </div>
+          <Skeleton className="h-10 w-36" />
+        </div>
+        <div className="flex gap-3">
+          <Skeleton className="h-10 flex-1" />
+          <Skeleton className="h-10 w-40" />
+          <Skeleton className="h-10 w-44" />
+          <Skeleton className="h-10 w-36" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {[...Array(8)].map((_, i) => (
+            <Skeleton key={i} className="aspect-square rounded-lg" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (photosError || projectsError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Site Photos</h1>
+          <p className="text-muted-foreground">View and manage construction site photographs</p>
+        </div>
+        <ErrorState message={photosError || projectsError || "Failed to load photos"} onRetry={refetchPhotos || refetchProjects} />
+      </div>
+    )
   }
 
   return (
@@ -172,107 +281,19 @@ export default function PhotosPage() {
             View and manage construction site photographs
           </p>
         </div>
-        <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-          <DialogTrigger
-            render={
-              <Button>
-                <Upload className="h-4 w-4" />
-                Upload Photo
-              </Button>
-            }
-          />
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Upload Site Photo</DialogTitle>
-              <DialogDescription>
-                Add a new site photo with details and category.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-2">
-              <div className="grid gap-2">
-                <Label>Select Photo</Label>
-                <div className="flex h-32 w-full items-center justify-center rounded-lg border-2 border-dashed border-input bg-muted/30">
-                  <div className="text-center">
-                    <Camera className="mx-auto h-8 w-8 text-muted-foreground/50" />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Click to browse or drag and drop
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label>Project</Label>
-                <Select
-                  value={newPhoto.project_id}
-                  onValueChange={(val) =>
-                    val && setNewPhoto({ ...newPhoto, project_id: val })
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockProjects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>Category</Label>
-                <Select
-                  value={newPhoto.category}
-                  onValueChange={(val) =>
-                    val &&
-                    setNewPhoto({
-                      ...newPhoto,
-                      category: val as PhotoCategory,
-                    })
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PHOTO_CATEGORIES.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>Notes</Label>
-                <Textarea
-                  placeholder="Describe what this photo shows..."
-                  value={newPhoto.notes}
-                  onChange={(e) =>
-                    setNewPhoto({ ...newPhoto, notes: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setUploadDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleUpload}>Upload</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {canUpload && (
+          <Button onClick={() => setUploadDialogOpen(true)}>
+            <Upload className="h-4 w-4" />
+            Upload Photo
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search photos by notes, uploader, or project..."
+            placeholder="Search photos by notes or project..."
             className="pl-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -297,7 +318,7 @@ export default function PhotosPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Projects</SelectItem>
-            {mockProjects.map((project) => (
+            {projects.map((project) => (
               <SelectItem key={project.id} value={project.id}>
                 {project.name}
               </SelectItem>
@@ -335,15 +356,11 @@ export default function PhotosPage() {
       </div>
 
       {filteredPhotos.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Camera className="mb-4 h-12 w-12 text-muted-foreground/50" />
-            <p className="text-lg font-medium">No photos found</p>
-            <p className="text-sm text-muted-foreground">
-              Try adjusting your filters or upload a new photo
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          type="photos"
+          title="No photos found"
+          description={canUpload ? "Upload your first site photo" : "No photos available yet"}
+        />
       ) : viewMode === "grid" ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {filteredPhotos.map((photo) => (
@@ -352,9 +369,10 @@ export default function PhotosPage() {
               className="group relative overflow-hidden rounded-lg border bg-card"
             >
               <img
-                src={photo.thumbnail_url}
+                src={photo.thumbnail_url || photo.url}
                 alt={photo.notes}
                 className="aspect-square w-full object-cover transition-transform group-hover:scale-105"
+                loading="lazy"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
               <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 transition-opacity group-hover:opacity-100">
@@ -367,16 +385,31 @@ export default function PhotosPage() {
                   {photo.notes}
                 </p>
                 <div className="flex items-center gap-2 text-[10px] text-white/70">
-                  <User className="h-3 w-3" />
-                  <span>{getUserName(photo.uploaded_by)}</span>
+                  <Calendar className="h-3 w-3" />
+                  <span>{new Date(photo.created_at).toLocaleDateString("en-IN")}</span>
                 </div>
               </div>
-              <div className="absolute top-2 right-2">
+              <div className="absolute top-2 right-2 flex items-center gap-1">
                 <Badge
                   className={`border text-[10px] ${CATEGORY_COLORS[photo.category]}`}
                 >
                   {photo.category}
                 </Badge>
+                {canUpload && (
+                  <Button
+                    variant="destructive"
+                    size="icon-sm"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6"
+                    onClick={() => handleDeletePhoto(photo.id)}
+                    disabled={deletingId === photo.id}
+                  >
+                    {deletingId === photo.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3 w-3" />
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
           ))}
@@ -399,9 +432,10 @@ export default function PhotosPage() {
                     className="group relative overflow-hidden rounded-lg border bg-card"
                   >
                     <img
-                      src={photo.thumbnail_url}
+                      src={photo.thumbnail_url || photo.url}
                       alt={photo.notes}
                       className="aspect-square w-full object-cover transition-transform group-hover:scale-105"
+                      loading="lazy"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
                     <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 transition-opacity group-hover:opacity-100">
@@ -413,17 +447,28 @@ export default function PhotosPage() {
                       <p className="text-xs text-white line-clamp-2 mb-1">
                         {photo.notes}
                       </p>
-                      <div className="flex items-center gap-2 text-[10px] text-white/70">
-                        <User className="h-3 w-3" />
-                        <span>{getUserName(photo.uploaded_by)}</span>
-                      </div>
                     </div>
-                    <div className="absolute top-2 right-2">
+                    <div className="absolute top-2 right-2 flex items-center gap-1">
                       <Badge
                         className={`border text-[10px] ${CATEGORY_COLORS[photo.category]}`}
                       >
                         {photo.category}
                       </Badge>
+                      {canUpload && (
+                        <Button
+                          variant="destructive"
+                          size="icon-sm"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6"
+                          onClick={() => handleDeletePhoto(photo.id)}
+                          disabled={deletingId === photo.id}
+                        >
+                          {deletingId === photo.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3 w-3" />
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -432,6 +477,141 @@ export default function PhotosPage() {
           ))}
         </div>
       )}
+
+      {/* Upload Dialog */}
+      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Upload Site Photo</DialogTitle>
+            <DialogDescription>
+              Add a new site photo with details and category.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label>Select Photo</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+              {previewUrl ? (
+                <div className="relative">
+                  <img
+                    src={previewUrl}
+                    alt="Preview"
+                    className="w-full h-48 object-cover rounded-lg border"
+                  />
+                  <Button
+                    variant="destructive"
+                    size="icon-sm"
+                    className="absolute top-2 right-2 h-7 w-7"
+                    onClick={clearFileSelection}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-1 truncate">{selectedFile?.name}</p>
+                </div>
+              ) : (
+                <div
+                  className="flex h-32 w-full items-center justify-center rounded-lg border-2 border-dashed border-input bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleDrop}
+                >
+                  <div className="text-center">
+                    <Camera className="mx-auto h-8 w-8 text-muted-foreground/50" />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Click to browse or drag and drop
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                      JPEG, PNG, WebP up to 10MB
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="grid gap-2">
+              <Label>Project</Label>
+              <Select
+                value={newPhoto.project_id}
+                onValueChange={(val) =>
+                  val && setNewPhoto({ ...newPhoto, project_id: val })
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>Category</Label>
+              <Select
+                value={newPhoto.category}
+                onValueChange={(val) =>
+                  val &&
+                  setNewPhoto({
+                    ...newPhoto,
+                    category: val as PhotoCategory,
+                  })
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PHOTO_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>Notes</Label>
+              <Textarea
+                placeholder="Describe what this photo shows..."
+                value={newPhoto.notes}
+                onChange={(e) =>
+                  setNewPhoto({ ...newPhoto, notes: e.target.value })
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                clearFileSelection()
+                setUploadDialogOpen(false)
+              }}
+              disabled={uploading}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleUpload} disabled={!selectedFile || !newPhoto.project_id || uploading}>
+              {uploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                "Upload"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

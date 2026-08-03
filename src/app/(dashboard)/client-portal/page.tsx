@@ -26,14 +26,13 @@ import {
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 
-import {
-  mockProjects,
-  mockSitePhotos,
-  mockProgressReports,
-} from "@/lib/mock-data"
+import { useProjects, usePhotos, useReports } from "@/lib/hooks/use-data"
+import { useStore } from "@/lib/store"
+import { RoleGuard } from "@/components/role-guard"
+import { ErrorState } from "@/components/error-state"
+import { CardGridSkeleton } from "@/components/page-skeletons"
+import { EmptyState } from "@/components/empty-state"
 import type { Project, SitePhoto, ProgressReport } from "@/lib/types"
-
-const CLIENT_ID = "user-004"
 
 const statusColors: Record<string, string> = {
   Planning: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
@@ -55,23 +54,29 @@ const categoryColors: Record<string, string> = {
   Plumbing: "bg-cyan-100 text-cyan-800",
   Electrical: "bg-yellow-100 text-yellow-800",
   Roofing: "bg-red-100 text-red-800",
-  Structure: "bg-purple-100 text-purple-800",
   Finishing: "bg-green-100 text-green-800",
 }
 
 export default function ClientPortalPage() {
+  const { currentUser } = useStore()
+  const { data: rawAllProjects, isLoading: projectsLoading, error: projectsError, refetch: refetchProjects } = useProjects()
+  const allProjects = rawAllProjects ?? []
+  const { data: rawAllPhotos, isLoading: photosLoading, error: photosError, refetch: refetchPhotos } = usePhotos()
+  const allPhotos = rawAllPhotos ?? []
+  const { data: rawAllReports, isLoading: reportsLoading, error: reportsError, refetch: refetchReports } = useReports()
+  const allReports = rawAllReports ?? []
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
 
-  const clientProjects = mockProjects.filter(
-    (p) => p.client_id === CLIENT_ID
+  const clientProjects = allProjects.filter(
+    (p) => p.client_id === currentUser?.id
   )
 
   const getProjectPhotos = (projectId: string): SitePhoto[] => {
-    return mockSitePhotos.filter((photo) => photo.project_id === projectId)
+    return allPhotos.filter((photo) => photo.project_id === projectId)
   }
 
   const getProjectReports = (projectId: string): ProgressReport[] => {
-    return mockProgressReports.filter(
+    return allReports.filter(
       (report) => report.project_id === projectId
     )
   }
@@ -510,7 +515,37 @@ export default function ClientPortalPage() {
     )
   }
 
+  const isLoading = projectsLoading || photosLoading || reportsLoading
+
+  if (isLoading && !selectedProject) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">My Projects</h1>
+          <p className="text-muted-foreground">View and track the progress of your construction projects</p>
+        </div>
+        <CardGridSkeleton count={6} columns={3} />
+      </div>
+    )
+  }
+
+  if (projectsError || photosError || reportsError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">My Projects</h1>
+          <p className="text-muted-foreground">View and track the progress of your construction projects</p>
+        </div>
+        <ErrorState
+          message={projectsError || photosError || reportsError || "Failed to load data"}
+          onRetry={refetchProjects || refetchPhotos || refetchReports}
+        />
+      </div>
+    )
+  }
+
   return (
+    <RoleGuard allowedRoles={["owner", "client"]}>
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">My Projects</h1>
@@ -569,16 +604,13 @@ export default function ClientPortalPage() {
       </div>
 
       {clientProjects.length === 0 && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Building2 className="h-12 w-12 text-muted-foreground/50" />
-            <p className="mt-4 text-lg font-medium">No Projects Found</p>
-            <p className="text-sm text-muted-foreground">
-              You don&apos;t have any projects assigned yet
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          type="clientPortal"
+          title="No Projects Found"
+          description="You don't have any projects assigned yet"
+        />
       )}
     </div>
+    </RoleGuard>
   )
 }

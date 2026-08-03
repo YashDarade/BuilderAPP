@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress, ProgressLabel, ProgressValue } from "@/components/ui/progress"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Wallet,
   TrendingUp,
@@ -23,11 +24,9 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts"
-import {
-  mockProjects,
-  mockBudgetConsumption,
-  mockBudgetAlerts,
-} from "@/lib/mock-data"
+import { useProjects, useBudgetConsumption, useBudgetAlerts } from "@/lib/hooks/use-data"
+import { ErrorState } from "@/components/error-state"
+import { RoleGuard } from "@/components/role-guard"
 
 const CHART_COLORS = ["#f97316", "#3b82f6", "#22c55e", "#ef4444", "#8b5cf6", "#eab308"]
 
@@ -51,7 +50,7 @@ function getAlertIcon(type: string) {
   switch (type) {
     case "budget_exceeded":
       return "text-red-500"
-    case "budget_critical":
+    case "budget_90":
       return "text-orange-500"
     default:
       return "text-yellow-500"
@@ -62,7 +61,7 @@ function getAlertBadgeVariant(type: string): "destructive" | "secondary" | "outl
   switch (type) {
     case "budget_exceeded":
       return "destructive"
-    case "budget_critical":
+    case "budget_90":
       return "secondary"
     default:
       return "outline"
@@ -70,14 +69,31 @@ function getAlertBadgeVariant(type: string): "destructive" | "secondary" | "outl
 }
 
 export default function BudgetPage() {
+  const { data: rawProjects, isLoading: projectsLoading, error: projectsError, refetch: refetchProjects } = useProjects()
+  const projects = rawProjects ?? []
+  const { data: rawBudgetConsumption, isLoading: budgetLoading } = useBudgetConsumption()
+  const budgetConsumption = useMemo(() => {
+    const raw = rawBudgetConsumption ?? []
+    const seen = new Set<string>()
+    return raw.filter((item) => {
+      if (seen.has(item.project_id)) return false
+      seen.add(item.project_id)
+      return true
+    })
+  }, [rawBudgetConsumption])
+  const { data: rawBudgetAlerts, isLoading: alertsLoading } = useBudgetAlerts()
+  const budgetAlerts = rawBudgetAlerts ?? []
+
+  const isLoading = projectsLoading || budgetLoading || alertsLoading
+
   const totalBudget = useMemo(
-    () => mockProjects.reduce((acc, p) => acc + p.budget, 0),
-    []
+    () => projects.reduce((acc, p) => acc + p.budget, 0),
+    [projects]
   )
 
   const totalSpent = useMemo(
-    () => mockProjects.reduce((acc, p) => acc + p.spent, 0),
-    []
+    () => projects.reduce((acc, p) => acc + p.spent, 0),
+    [projects]
   )
 
   const totalRemaining = totalBudget - totalSpent
@@ -85,20 +101,67 @@ export default function BudgetPage() {
 
   const pieData = useMemo(
     () =>
-      mockBudgetConsumption.map((item) => ({
+      budgetConsumption.map((item) => ({
         name: item.project_name,
         value: item.spent,
         percentage: item.percentage,
       })),
-    []
+    [budgetConsumption]
   )
 
   const unreadAlerts = useMemo(
-    () => mockBudgetAlerts.filter((a) => !a.is_read),
-    []
+    () => budgetAlerts.filter((a) => !a.is_read),
+    [budgetAlerts]
   )
 
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-9 w-32 mb-2" />
+          <Skeleton className="h-5 w-80" />
+        </div>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-8 w-28" />
+                  </div>
+                  <Skeleton className="h-12 w-12 rounded-full" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-52" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-[350px] w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (projectsError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Budget</h1>
+          <p className="text-muted-foreground">Track project budgets and spending</p>
+        </div>
+        <ErrorState message={projectsError} onRetry={refetchProjects} />
+      </div>
+    )
+  }
+
   return (
+    <RoleGuard allowedRoles={["owner"]}>
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Budget</h1>
@@ -222,7 +285,7 @@ export default function BudgetPage() {
       <div>
         <h2 className="mb-4 text-xl font-semibold">Project Budgets</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {mockBudgetConsumption.map((item) => {
+          {budgetConsumption.map((item) => {
             const colorClass = getProgressColor(item.percentage)
             return (
               <Card key={item.project_id} className="hover:shadow-md transition-shadow">
@@ -281,7 +344,7 @@ export default function BudgetPage() {
             <div className="space-y-3">
               {unreadAlerts.map((alert) => {
                 const projectName =
-                  mockProjects.find((p) => p.id === alert.project_id)?.name ||
+                  projects.find((p) => p.id === alert.project_id)?.name ||
                   "Unknown"
                 return (
                   <div
@@ -319,5 +382,6 @@ export default function BudgetPage() {
         </Card>
       )}
     </div>
+    </RoleGuard>
   )
 }

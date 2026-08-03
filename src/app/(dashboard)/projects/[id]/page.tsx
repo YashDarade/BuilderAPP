@@ -1,6 +1,5 @@
 "use client"
 
-import { useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,13 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Progress, ProgressLabel, ProgressValue } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  mockProjects,
-  mockExpenses,
-  mockMaterials,
-  mockSitePhotos,
-  mockProgressReports,
-} from "@/lib/mock-data"
+import { useProject, useExpenses, useMaterials, usePhotos, useReports } from "@/lib/hooks/use-data"
+import { ErrorState } from "@/components/error-state"
+import { PageHeaderSkeleton, StatCardsSkeleton, TableSkeleton } from "@/components/page-skeletons"
 import type { ProjectStatus } from "@/lib/types"
 import {
   ArrowLeft,
@@ -77,27 +72,17 @@ export default function ProjectDetailPage() {
   const router = useRouter()
   const projectId = params.id as string
 
-  const project = mockProjects.find((p) => p.id === projectId)
+  const { data: project, isLoading: projectLoading, error: projectError, refetch: refetchProject } = useProject(projectId)
+  const { data: rawProjectExpenses, isLoading: expensesLoading } = useExpenses(projectId)
+  const projectExpenses = rawProjectExpenses ?? []
+  const { data: rawProjectMaterials, isLoading: materialsLoading } = useMaterials(projectId)
+  const projectMaterials = rawProjectMaterials ?? []
+  const { data: rawProjectPhotos, isLoading: photosLoading } = usePhotos(projectId)
+  const projectPhotos = rawProjectPhotos ?? []
+  const { data: rawProjectReports, isLoading: reportsLoading } = useReports(projectId)
+  const projectReports = rawProjectReports ?? []
 
-  const projectExpenses = useMemo(
-    () => mockExpenses.filter((e) => e.project_id === projectId),
-    [projectId]
-  )
-
-  const projectMaterials = useMemo(
-    () => mockMaterials.filter((m) => m.project_id === projectId),
-    [projectId]
-  )
-
-  const projectPhotos = useMemo(
-    () => mockSitePhotos.filter((p) => p.project_id === projectId),
-    [projectId]
-  )
-
-  const projectReports = useMemo(
-    () => mockProgressReports.filter((r) => r.project_id === projectId),
-    [projectId]
-  )
+  const isLoading = projectLoading || expensesLoading || materialsLoading || photosLoading || reportsLoading
 
   const totalExpenses = projectExpenses.reduce((acc, e) => acc + e.amount, 0)
 
@@ -105,6 +90,28 @@ export default function ProjectDetailPage() {
     (acc, m) => acc + m.quantity_remaining * m.cost_per_unit,
     0
   )
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <PageHeaderSkeleton />
+        <StatCardsSkeleton count={3} />
+        <TableSkeleton rows={4} columns={4} />
+      </div>
+    )
+  }
+
+  if (projectError) {
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
+        <ErrorState message={projectError} onRetry={refetchProject} />
+      </div>
+    )
+  }
 
   if (!project) {
     return (

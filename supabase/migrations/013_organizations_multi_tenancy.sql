@@ -1,0 +1,10 @@
+-- BuildTrack AI: Multi-Tenant Foundation
+-- Migration: 013_organizations_multi_tenancy
+--
+-- This migration is split into two parts for safety:
+--   013a_schema_changes.sql  — Run FIRST (tables, columns, enum, functions)
+--   013b_rls_policies.sql    — Run SECOND (RLS policies)
+--
+-- Run each part separately in the Supabase Dashboard SQL Editor.
+-- If Part 1 fails, fix the error and re-run Part 1. 
+-- Only run Part 2 after Part 1 succeeds.

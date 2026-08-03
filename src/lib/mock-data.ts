@@ -15,6 +15,7 @@ import type {
   MonthlyExpense,
   BudgetConsumption,
   ProjectProgress,
+  Roadmap,
 } from '@/lib/types'
 
 const PROJECT_IDS = [
@@ -34,12 +35,15 @@ const USER_IDS = {
   client2: 'user-005',
 }
 
+const ORG_ID = 'org-001'
+
 export const mockUsers: User[] = [
   {
     id: USER_IDS.admin,
     email: 'admin@buildtrack.ai',
     full_name: 'Rajesh Kumar',
-    role: 'admin',
+    role: 'owner',
+    org_id: ORG_ID,
     avatar_url: null,
     phone: '+91 98765 43210',
     created_at: '2024-01-15T08:00:00Z',
@@ -49,6 +53,7 @@ export const mockUsers: User[] = [
     email: 'amit.engineer@buildtrack.ai',
     full_name: 'Amit Sharma',
     role: 'site_engineer',
+    org_id: ORG_ID,
     avatar_url: null,
     phone: '+91 98765 43211',
     created_at: '2024-02-01T08:00:00Z',
@@ -58,6 +63,7 @@ export const mockUsers: User[] = [
     email: 'priya.engineer@buildtrack.ai',
     full_name: 'Priya Patel',
     role: 'site_engineer',
+    org_id: ORG_ID,
     avatar_url: null,
     phone: '+91 98765 43212',
     created_at: '2024-02-10T08:00:00Z',
@@ -67,6 +73,7 @@ export const mockUsers: User[] = [
     email: 'suresh.client@gmail.com',
     full_name: 'Suresh Mehta',
     role: 'client',
+    org_id: ORG_ID,
     avatar_url: null,
     phone: '+91 98765 43213',
     created_at: '2024-03-01T08:00:00Z',
@@ -76,6 +83,7 @@ export const mockUsers: User[] = [
     email: 'anita.client@outlook.com',
     full_name: 'Anita Desai',
     role: 'client',
+    org_id: ORG_ID,
     avatar_url: null,
     phone: '+91 98765 43214',
     created_at: '2024-03-15T08:00:00Z',
@@ -88,6 +96,8 @@ export const mockProjects: Project[] = [
     name: 'Sunset Villa Complex',
     client_name: 'Suresh Mehta',
     client_id: USER_IDS.client1,
+    engineer_id: USER_IDS.engineer1,
+    org_id: ORG_ID,
     address: '42 Sunset Boulevard, Baner, Pune 411045',
     start_date: '2024-06-01',
     expected_completion_date: '2025-12-31',
@@ -104,6 +114,8 @@ export const mockProjects: Project[] = [
     name: 'Metro Office Tower',
     client_name: 'Anita Desai',
     client_id: USER_IDS.client2,
+    engineer_id: USER_IDS.engineer1,
+    org_id: ORG_ID,
     address: '15 Metro Heights, Hinjewadi, Pune 411057',
     start_date: '2024-03-15',
     expected_completion_date: '2025-09-30',
@@ -120,6 +132,8 @@ export const mockProjects: Project[] = [
     name: 'Harbor View Residency',
     client_name: 'Suresh Mehta',
     client_id: USER_IDS.client1,
+    engineer_id: USER_IDS.engineer2,
+    org_id: ORG_ID,
     address: '88 Harbor Road, Kharadi, Pune 411014',
     start_date: '2025-01-10',
     expected_completion_date: '2026-06-30',
@@ -136,6 +150,8 @@ export const mockProjects: Project[] = [
     name: 'Green Valley School',
     client_name: 'Municipal Corporation of Pune',
     client_id: USER_IDS.client2,
+    engineer_id: USER_IDS.engineer2,
+    org_id: ORG_ID,
     address: '12 Green Valley Road, Kothrud, Pune 411038',
     start_date: '2024-11-01',
     expected_completion_date: '2026-03-31',
@@ -152,6 +168,8 @@ export const mockProjects: Project[] = [
     name: 'Skyline Apartment Phase 2',
     client_name: 'Anita Desai',
     client_id: USER_IDS.client2,
+    engineer_id: USER_IDS.engineer1,
+    org_id: ORG_ID,
     address: '5 Skyline Enclave, Wakad, Pune 411057',
     start_date: '2024-08-15',
     expected_completion_date: '2026-02-28',
@@ -168,6 +186,8 @@ export const mockProjects: Project[] = [
     name: 'Riverside Commercial Hub',
     client_name: 'Suresh Mehta',
     client_id: USER_IDS.client1,
+    engineer_id: USER_IDS.engineer2,
+    org_id: ORG_ID,
     address: '33 Riverside Drive, Undri, Pune 411060',
     start_date: '2025-03-01',
     expected_completion_date: '2026-08-31',
@@ -185,6 +205,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[0],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'OPC 53 Cement',
     category: 'Cement',
     quantity_purchased: 400,
@@ -201,6 +222,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[0],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'TMT Steel Bars 12mm',
     category: 'Steel',
     quantity_purchased: 200,
@@ -217,6 +239,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[0],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'Red Bricks',
     category: 'Bricks',
     quantity_purchased: 15000,
@@ -233,6 +256,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[0],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'River Sand',
     category: 'Aggregate',
     quantity_purchased: 50,
@@ -249,6 +273,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'OPC 43 Cement',
     category: 'Cement',
     quantity_purchased: 1200,
@@ -265,6 +290,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'TMT Steel Bars 16mm',
     category: 'Steel',
     quantity_purchased: 500,
@@ -281,6 +307,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'Fly Ash Bricks',
     category: 'Bricks',
     quantity_purchased: 40000,
@@ -297,6 +324,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'Portland Cement',
     category: 'Cement',
     quantity_purchased: 600,
@@ -313,6 +341,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[2],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'OPC 53 Cement',
     category: 'Cement',
     quantity_purchased: 300,
@@ -329,6 +358,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[2],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'TMT Steel Bars 20mm',
     category: 'Steel',
     quantity_purchased: 150,
@@ -345,6 +375,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[2],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'Gravel',
     category: 'Aggregate',
     quantity_purchased: 30,
@@ -361,6 +392,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[3],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'OPC 53 Cement',
     category: 'Cement',
     quantity_purchased: 800,
@@ -377,6 +409,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[3],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'TMT Steel Bars 12mm',
     category: 'Steel',
     quantity_purchased: 300,
@@ -393,6 +426,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[3],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'Hollow Blocks',
     category: 'Bricks',
     quantity_purchased: 8000,
@@ -409,8 +443,9 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[4],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'Premium Wall Putty',
-    category: 'Finishing',
+    category: 'Miscellaneous',
     quantity_purchased: 200,
     quantity_used: 140,
     quantity_remaining: 60,
@@ -425,8 +460,9 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[4],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'Ceramic Floor Tiles',
-    category: 'Finishing',
+    category: 'Miscellaneous',
     quantity_purchased: 500,
     quantity_used: 350,
     quantity_remaining: 150,
@@ -441,8 +477,9 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[4],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'Emulsion Paint',
-    category: 'Finishing',
+    category: 'Miscellaneous',
     quantity_purchased: 80,
     quantity_used: 55,
     quantity_remaining: 25,
@@ -457,6 +494,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[5],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'OPC 53 Cement',
     category: 'Cement',
     quantity_purchased: 200,
@@ -473,6 +511,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[5],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'TMT Steel Bars 25mm',
     category: 'Steel',
     quantity_purchased: 100,
@@ -489,6 +528,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[5],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'M Sand',
     category: 'Aggregate',
     quantity_purchased: 40,
@@ -505,6 +545,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'CPVC Pipes',
     category: 'Plumbing',
     quantity_purchased: 100,
@@ -521,6 +562,7 @@ export const mockMaterials: Material[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[4],
+    org_id: "00000000-0000-0000-0000-000000000001",
     name: 'Electrical Wires 2.5 sqmm',
     category: 'Electrical',
     quantity_purchased: 500,
@@ -540,6 +582,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[0],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 450000,
     category: 'Labor',
     vendor: 'Raj Construction Labor',
@@ -552,6 +595,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[0],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 152000,
     category: 'Cement',
     vendor: 'UltraTech Cement',
@@ -564,6 +608,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[0],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 240000,
     category: 'Steel',
     vendor: 'Tata Tiscon',
@@ -576,6 +621,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[0],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 350000,
     category: 'Labor',
     vendor: 'Raj Construction Labor',
@@ -588,6 +634,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[0],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 85000,
     category: 'Transport',
     vendor: 'Maharashtra Transport Corp',
@@ -600,6 +647,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 1200000,
     category: 'Labor',
     vendor: 'Metro Builders Association',
@@ -612,6 +660,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 432000,
     category: 'Cement',
     vendor: 'ACC Limited',
@@ -624,6 +673,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 900000,
     category: 'Steel',
     vendor: 'JSW Steel',
@@ -636,6 +686,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 650000,
     category: 'Machinery',
     vendor: 'Tata Equipment Rentals',
@@ -648,6 +699,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 280000,
     category: 'Plumbing',
     vendor: 'Astral Pipes',
@@ -660,6 +712,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 195000,
     category: 'Electrical',
     vendor: 'Havells India',
@@ -672,6 +725,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[2],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 850000,
     category: 'Labor',
     vendor: 'Kharadi Builders Group',
@@ -684,6 +738,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[2],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 115500,
     category: 'Cement',
     vendor: 'Birla Cement',
@@ -696,6 +751,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[2],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 360000,
     category: 'Steel',
     vendor: 'SAIL TMT',
@@ -708,6 +764,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[2],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 180000,
     category: 'Machinery',
     vendor: 'JCB India Rentals',
@@ -720,6 +777,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[2],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 45000,
     category: 'Transport',
     vendor: 'Pune Logistics',
@@ -732,6 +790,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[3],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 1500000,
     category: 'Labor',
     vendor: 'Green Valley Contractors',
@@ -744,6 +803,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[3],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 296000,
     category: 'Cement',
     vendor: 'Ambuja Cements',
@@ -756,6 +816,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[3],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 354000,
     category: 'Steel',
     vendor: 'Tata Tiscon',
@@ -768,6 +829,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[3],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 200000,
     category: 'Miscellaneous',
     vendor: 'BlockMaster Industries',
@@ -780,6 +842,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[3],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 125000,
     category: 'Transport',
     vendor: 'Maharashtra Transport Corp',
@@ -792,6 +855,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[4],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 2200000,
     category: 'Labor',
     vendor: 'Skyline Builders',
@@ -804,8 +868,9 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[4],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 425000,
-    category: 'Finishing',
+    category: 'Miscellaneous',
     vendor: 'Kajaria Ceramics',
     description: 'Ceramic floor tiles - 5000 sqft',
     date: '2025-05-01',
@@ -816,8 +881,9 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[4],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 90000,
-    category: 'Finishing',
+    category: 'Miscellaneous',
     vendor: 'Asian Paints',
     description: 'Premium wall putty and primer',
     date: '2025-05-10',
@@ -828,6 +894,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[4],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 140000,
     category: 'Electrical',
     vendor: 'Havells India',
@@ -840,6 +907,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[4],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 180000,
     category: 'Plumbing',
     vendor: 'Jaquar Bath Fittings',
@@ -852,6 +920,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[4],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 75000,
     category: 'Miscellaneous',
     vendor: 'Home Depot India',
@@ -864,6 +933,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[5],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 350000,
     category: 'Labor',
     vendor: 'Undri Construction Co',
@@ -876,6 +946,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[5],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 76000,
     category: 'Cement',
     vendor: 'Dalmia Cement',
@@ -888,6 +959,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[5],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 320000,
     category: 'Steel',
     vendor: 'JSW Steel',
@@ -900,6 +972,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[5],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 250000,
     category: 'Machinery',
     vendor: 'L&T Equipment Rentals',
@@ -912,6 +985,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[5],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 95000,
     category: 'Transport',
     vendor: 'Pune Logistics',
@@ -924,6 +998,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[0],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 25000,
     category: 'Miscellaneous',
     vendor: 'Local Hardware Shop',
@@ -936,6 +1011,7 @@ export const mockExpenses: Expense[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
+    org_id: "00000000-0000-0000-0000-000000000001",
     amount: 450000,
     category: 'Labor',
     vendor: 'Metro Builders Association',
@@ -951,6 +1027,7 @@ export const mockSitePhotos: SitePhoto[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[0],
+    org_id: "00000000-0000-0000-0000-000000000001",
     url: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800',
     thumbnail_url: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=200',
     notes: 'Foundation work progress - Block A footings complete',
@@ -963,6 +1040,7 @@ export const mockSitePhotos: SitePhoto[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[0],
+    org_id: "00000000-0000-0000-0000-000000000001",
     url: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=800',
     thumbnail_url: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=200',
     notes: 'Column reinforcement steel placed for 2nd floor',
@@ -975,6 +1053,7 @@ export const mockSitePhotos: SitePhoto[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[0],
+    org_id: "00000000-0000-0000-0000-000000000001",
     url: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800',
     thumbnail_url: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=200',
     notes: 'Brickwork completed on ground floor exterior walls',
@@ -987,10 +1066,11 @@ export const mockSitePhotos: SitePhoto[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
+    org_id: "00000000-0000-0000-0000-000000000001",
     url: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800',
     thumbnail_url: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=200',
     notes: 'Tower crane installation and structural steel placement',
-    category: 'Structure',
+    category: 'Columns',
     gps_lat: 18.5912,
     gps_lng: 73.7389,
     uploaded_by: USER_IDS.engineer2,
@@ -999,6 +1079,7 @@ export const mockSitePhotos: SitePhoto[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
+    org_id: "00000000-0000-0000-0000-000000000001",
     url: 'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800',
     thumbnail_url: 'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=200',
     notes: 'Brickwork in progress on 5th floor',
@@ -1011,6 +1092,7 @@ export const mockSitePhotos: SitePhoto[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
+    org_id: "00000000-0000-0000-0000-000000000001",
     url: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=800',
     thumbnail_url: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=200',
     notes: 'Plumbing rough-in on floors 1-4',
@@ -1023,6 +1105,7 @@ export const mockSitePhotos: SitePhoto[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[2],
+    org_id: "00000000-0000-0000-0000-000000000001",
     url: 'https://images.unsplash.com/photo-1578496479914-7ef3b0193be3?w=800',
     thumbnail_url: 'https://images.unsplash.com/photo-1578496479914-7ef3b0193be3?w=200',
     notes: 'Excavation and soil testing completed',
@@ -1035,6 +1118,7 @@ export const mockSitePhotos: SitePhoto[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[2],
+    org_id: "00000000-0000-0000-0000-000000000001",
     url: 'https://images.unsplash.com/photo-1635424710928-0544e8512eae?w=800',
     thumbnail_url: 'https://images.unsplash.com/photo-1635424710928-0544e8512eae?w=200',
     notes: 'Pile foundation work in progress',
@@ -1047,6 +1131,7 @@ export const mockSitePhotos: SitePhoto[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[3],
+    org_id: "00000000-0000-0000-0000-000000000001",
     url: 'https://images.unsplash.com/photo-1562516132-e4ef1dc1f814?w=800',
     thumbnail_url: 'https://images.unsplash.com/photo-1562516132-e4ef1dc1f814?w=200',
     notes: 'School building column casting completed',
@@ -1059,6 +1144,7 @@ export const mockSitePhotos: SitePhoto[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[3],
+    org_id: "00000000-0000-0000-0000-000000000001",
     url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800',
     thumbnail_url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=200',
     notes: 'Roof slab reinforcement for main hall',
@@ -1071,6 +1157,7 @@ export const mockSitePhotos: SitePhoto[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[4],
+    org_id: "00000000-0000-0000-0000-000000000001",
     url: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=800',
     thumbnail_url: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=200',
     notes: 'Floor tiling in apartment 3B',
@@ -1083,6 +1170,7 @@ export const mockSitePhotos: SitePhoto[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[4],
+    org_id: "00000000-0000-0000-0000-000000000001",
     url: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800',
     thumbnail_url: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=200',
     notes: 'Paint work completed in lobby area',
@@ -1095,6 +1183,7 @@ export const mockSitePhotos: SitePhoto[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[4],
+    org_id: "00000000-0000-0000-0000-000000000001",
     url: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800',
     thumbnail_url: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=200',
     notes: 'Electrical panel installation in basement',
@@ -1107,6 +1196,7 @@ export const mockSitePhotos: SitePhoto[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[5],
+    org_id: "00000000-0000-0000-0000-000000000001",
     url: 'https://images.unsplash.com/photo-1513467535987-fd81bc7d62f8?w=800',
     thumbnail_url: 'https://images.unsplash.com/photo-1513467535987-fd81bc7d62f8?w=200',
     notes: 'Site boundary marking and layout plan',
@@ -1119,6 +1209,7 @@ export const mockSitePhotos: SitePhoto[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[5],
+    org_id: "00000000-0000-0000-0000-000000000001",
     url: 'https://images.unsplash.com/photo-1590486803833-1a5d7d773805?w=800',
     thumbnail_url: 'https://images.unsplash.com/photo-1590486803833-1a5d7d773805?w=200',
     notes: 'Soil compaction and leveling work',
@@ -1134,6 +1225,7 @@ export const mockProgressReports: ProgressReport[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[0],
+    org_id: "00000000-0000-0000-0000-000000000001",
     report_date: '2025-06-01',
     work_completed:
       'Completed 2nd floor slab casting. Brickwork started on ground floor exterior walls. Column reinforcement for 3rd floor in progress.',
@@ -1151,6 +1243,7 @@ export const mockProgressReports: ProgressReport[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
+    org_id: "00000000-0000-0000-0000-000000000001",
     report_date: '2025-06-05',
     work_completed:
       'Completed brickwork on floors 5-7. Started plumbing rough-in on floors 1-4. Electrical conduit installation on floors 3-5 completed.',
@@ -1168,6 +1261,7 @@ export const mockProgressReports: ProgressReport[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[2],
+    org_id: "00000000-0000-0000-0000-000000000001",
     report_date: '2025-06-08',
     work_completed:
       'Completed pile foundation for blocks A and B. PCC work started for block C footings. Soil bearing capacity test completed.',
@@ -1185,6 +1279,7 @@ export const mockProgressReports: ProgressReport[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[3],
+    org_id: "00000000-0000-0000-0000-000000000001",
     report_date: '2025-06-07',
     work_completed:
       'Completed 1st floor slab casting for main building. Started brickwork for classroom blocks. Column starter bars placed for 2nd floor.',
@@ -1202,6 +1297,7 @@ export const mockProgressReports: ProgressReport[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[4],
+    org_id: "00000000-0000-0000-0000-000000000001",
     report_date: '2025-06-10',
     work_completed:
       'Completed floor tiling in apartments 1A, 2A, 3A, 1B. Painting work in progress on 3rd floor. Bathroom fittings installed in 4 apartments.',
@@ -1219,6 +1315,7 @@ export const mockProgressReports: ProgressReport[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[5],
+    org_id: "00000000-0000-0000-0000-000000000001",
     report_date: '2025-06-05',
     work_completed:
       'Completed site clearing and boundary wall construction. Excavation for main building foundation started. Soil testing completed.',
@@ -1239,9 +1336,10 @@ export const mockNotifications: Notification[] = [
   {
     id: uuidv4(),
     user_id: USER_IDS.admin,
+    org_id: "00000000-0000-0000-0000-000000000001",
     title: 'Budget Alert - Metro Office Tower',
     message: 'Project has consumed 50% of allocated budget. Current spend: ₹1.1Cr of ₹2.2Cr.',
-    type: 'budget_alert',
+    type: 'budget_warning',
     is_read: false,
     related_id: PROJECT_IDS[1],
     created_at: '2025-06-10T08:00:00Z',
@@ -1249,9 +1347,10 @@ export const mockNotifications: Notification[] = [
   {
     id: uuidv4(),
     user_id: USER_IDS.admin,
+    org_id: "00000000-0000-0000-0000-000000000001",
     title: 'Low Stock Alert - Sunset Villa',
     message: 'TMT Steel Bars 12mm stock is below reorder level. Remaining: 50 pieces (reorder at 60).',
-    type: 'material_low',
+    type: 'low_stock',
     is_read: false,
     related_id: PROJECT_IDS[0],
     created_at: '2025-06-09T14:30:00Z',
@@ -1259,9 +1358,10 @@ export const mockNotifications: Notification[] = [
   {
     id: uuidv4(),
     user_id: USER_IDS.engineer1,
+    org_id: "00000000-0000-0000-0000-000000000001",
     title: 'Report Submitted - Harbor View',
     message: 'Daily progress report for Harbor View Residency has been submitted successfully.',
-    type: 'progress_update',
+    type: 'milestone',
     is_read: true,
     related_id: PROJECT_IDS[2],
     created_at: '2025-06-08T18:15:00Z',
@@ -1269,9 +1369,10 @@ export const mockNotifications: Notification[] = [
   {
     id: uuidv4(),
     user_id: USER_IDS.admin,
+    org_id: "00000000-0000-0000-0000-000000000001",
     title: 'Bill Scanned - Riverside Hub',
     message: 'New bill from Dalmia Cement for ₹76,000 has been scanned and verified. Confidence: 94%.',
-    type: 'bill_scanned',
+    type: 'new_report',
     is_read: true,
     related_id: PROJECT_IDS[5],
     created_at: '2025-06-05T11:00:00Z',
@@ -1279,9 +1380,10 @@ export const mockNotifications: Notification[] = [
   {
     id: uuidv4(),
     user_id: USER_IDS.client1,
+    org_id: "00000000-0000-0000-0000-000000000001",
     title: 'Progress Update - Sunset Villa',
     message: 'Sunset Villa Complex has reached 42% completion. Structure work is progressing well.',
-    type: 'progress_update',
+    type: 'milestone',
     is_read: false,
     related_id: PROJECT_IDS[0],
     created_at: '2025-06-10T09:00:00Z',
@@ -1289,9 +1391,10 @@ export const mockNotifications: Notification[] = [
   {
     id: uuidv4(),
     user_id: USER_IDS.admin,
+    org_id: "00000000-0000-0000-0000-000000000001",
     title: 'AI Insight - Metro Office Tower',
     message: 'Based on current progress, Metro Office Tower may face a 2-week delay. Recommend additional labor deployment.',
-    type: 'report_generated',
+    type: 'new_report',
     is_read: false,
     related_id: PROJECT_IDS[1],
     created_at: '2025-06-10T07:30:00Z',
@@ -1299,9 +1402,10 @@ export const mockNotifications: Notification[] = [
   {
     id: uuidv4(),
     user_id: USER_IDS.engineer2,
+    org_id: "00000000-0000-0000-0000-000000000001",
     title: 'Material Low - Metro Office',
     message: 'Portland Cement stock is running low. Remaining: 200 bags (reorder at 150). Consider reordering soon.',
-    type: 'material_low',
+    type: 'low_stock',
     is_read: true,
     related_id: PROJECT_IDS[1],
     created_at: '2025-06-08T10:00:00Z',
@@ -1309,9 +1413,10 @@ export const mockNotifications: Notification[] = [
   {
     id: uuidv4(),
     user_id: USER_IDS.client2,
+    org_id: "00000000-0000-0000-0000-000000000001",
     title: 'Project Update - Skyline Apartments',
     message: 'Skyline Apartment Phase 2 has reached 72% completion. Finishing work is in full swing.',
-    type: 'project_update',
+    type: 'milestone',
     is_read: true,
     related_id: PROJECT_IDS[4],
     created_at: '2025-06-10T10:30:00Z',
@@ -1319,9 +1424,10 @@ export const mockNotifications: Notification[] = [
   {
     id: uuidv4(),
     user_id: USER_IDS.admin,
+    org_id: "00000000-0000-0000-0000-000000000001",
     title: 'Budget Warning - Harbor View',
     message: 'Harbor View Residency has consumed 33.6% of budget. Monitor expenses closely.',
-    type: 'budget_alert',
+    type: 'budget_warning',
     is_read: true,
     related_id: PROJECT_IDS[2],
     created_at: '2025-06-09T08:00:00Z',
@@ -1329,9 +1435,10 @@ export const mockNotifications: Notification[] = [
   {
     id: uuidv4(),
     user_id: USER_IDS.engineer1,
+    org_id: "00000000-0000-0000-0000-000000000001",
     title: 'Weather Alert - Riverside Hub',
     message: 'Heavy rainfall expected next 3 days. Prepare site drainage and cover exposed materials.',
-    type: 'project_update',
+    type: 'milestone',
     is_read: false,
     related_id: PROJECT_IDS[5],
     created_at: '2025-06-11T06:00:00Z',
@@ -1339,9 +1446,10 @@ export const mockNotifications: Notification[] = [
   {
     id: uuidv4(),
     user_id: USER_IDS.admin,
+    org_id: "00000000-0000-0000-0000-000000000001",
     title: 'Bill Verified - Green Valley',
     message: 'Ambuja Cements bill for ₹296,000 has been processed and added to expense records.',
-    type: 'bill_scanned',
+    type: 'new_report',
     is_read: true,
     related_id: PROJECT_IDS[3],
     created_at: '2025-06-02T16:00:00Z',
@@ -1349,9 +1457,10 @@ export const mockNotifications: Notification[] = [
   {
     id: uuidv4(),
     user_id: USER_IDS.client2,
+    org_id: "00000000-0000-0000-0000-000000000001",
     title: 'Weekly Report - Green Valley School',
     message: 'Weekly progress report for Green Valley School is ready for review. Structure work at 35%.',
-    type: 'report_generated',
+    type: 'new_report',
     is_read: false,
     related_id: PROJECT_IDS[3],
     created_at: '2025-06-07T18:30:00Z',
@@ -1362,7 +1471,8 @@ export const mockBudgetAlerts: BudgetAlert[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[0],
-    alert_type: 'budget_warning',
+    org_id: "00000000-0000-0000-0000-000000000001",
+    alert_type: 'budget_70',
     threshold_percentage: 40,
     message: 'Sunset Villa Complex has consumed 40% of allocated budget.',
     is_read: false,
@@ -1371,7 +1481,8 @@ export const mockBudgetAlerts: BudgetAlert[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
-    alert_type: 'budget_warning',
+    org_id: "00000000-0000-0000-0000-000000000001",
+    alert_type: 'budget_70',
     threshold_percentage: 50,
     message: 'Metro Office Tower has consumed 50% of allocated budget. Review spending.',
     is_read: false,
@@ -1380,7 +1491,8 @@ export const mockBudgetAlerts: BudgetAlert[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[2],
-    alert_type: 'budget_warning',
+    org_id: "00000000-0000-0000-0000-000000000001",
+    alert_type: 'budget_70',
     threshold_percentage: 33,
     message: 'Harbor View Residency has consumed 33.6% of budget.',
     is_read: true,
@@ -1389,7 +1501,8 @@ export const mockBudgetAlerts: BudgetAlert[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[4],
-    alert_type: 'budget_warning',
+    org_id: "00000000-0000-0000-0000-000000000001",
+    alert_type: 'budget_70',
     threshold_percentage: 60,
     message: 'Skyline Apartment Phase 2 has consumed 60% of allocated budget.',
     is_read: true,
@@ -1398,7 +1511,8 @@ export const mockBudgetAlerts: BudgetAlert[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
-    alert_type: 'budget_critical',
+    org_id: "00000000-0000-0000-0000-000000000001",
+    alert_type: 'budget_90',
     threshold_percentage: 55,
     message: 'Metro Office Tower spending is accelerating. Budget may be exceeded by current trajectory.',
     is_read: false,
@@ -1410,61 +1524,66 @@ export const mockBillScans: BillScan[] = [
   {
     id: uuidv4(),
     expense_id: mockExpenses[1]?.id || uuidv4(),
+    org_id: "00000000-0000-0000-0000-000000000001",
     image_url: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800',
     vendor_name: 'UltraTech Cement',
     amount: 152000,
     date: '2024-06-20',
     gst_number: '27AABCU9603R1ZM',
     confidence_score: 0.96,
-    status: 'verified',
+    status: 'completed',
     created_at: '2024-06-20T11:00:00Z',
   },
   {
     id: uuidv4(),
     expense_id: mockExpenses[5]?.id || uuidv4(),
+    org_id: "00000000-0000-0000-0000-000000000001",
     image_url: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800',
     vendor_name: 'Metro Builders Association',
     amount: 1200000,
     date: '2025-04-15',
     gst_number: '27AABCM1234N1ZP',
     confidence_score: 0.92,
-    status: 'verified',
+    status: 'completed',
     created_at: '2025-04-15T11:00:00Z',
   },
   {
     id: uuidv4(),
     expense_id: mockExpenses[8]?.id || uuidv4(),
+    org_id: "00000000-0000-0000-0000-000000000001",
     image_url: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800',
     vendor_name: 'Tata Equipment Rentals',
     amount: 650000,
     date: '2024-08-01',
     gst_number: '27AABCT5678R1ZQ',
     confidence_score: 0.88,
-    status: 'verified',
+    status: 'completed',
     created_at: '2024-08-01T11:00:00Z',
   },
   {
     id: uuidv4(),
     expense_id: mockExpenses[27]?.id || uuidv4(),
+    org_id: "00000000-0000-0000-0000-000000000001",
     image_url: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800',
     vendor_name: 'Dalmia Cement',
     amount: 76000,
     date: '2025-03-25',
     gst_number: '27AABCD4321S1ZR',
     confidence_score: 0.94,
-    status: 'verified',
+    status: 'completed',
     created_at: '2025-03-25T11:00:00Z',
   },
   {
     id: uuidv4(),
     expense_id: mockExpenses[21]?.id || uuidv4(),
+    org_id: "00000000-0000-0000-0000-000000000001",
     image_url: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800',
     vendor_name: 'Kajaria Ceramics',
     amount: 425000,
     date: '2025-05-01',
     gst_number: '27AABCK8765T1ZS',
     confidence_score: 0.91,
-    status: 'verified',
+    status: 'completed',
     created_at: '2025-05-01T11:00:00Z',
   },
 ]
@@ -1473,7 +1592,8 @@ export const mockAIInsights: AIInsight[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[1],
-    insight_type: 'progress_prediction',
+    org_id: "00000000-0000-0000-0000-000000000001",
+    insight_type: 'delay_risk',
     title: 'Potential 2-Week Delay Predicted',
     description:
       'Based on current progress rate and resource allocation, Metro Office Tower may face a 2-week delay from the expected completion date. The brickwork phase is progressing slower than planned due to labor shortages.',
@@ -1488,7 +1608,8 @@ export const mockAIInsights: AIInsight[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[0],
-    insight_type: 'cost_analysis',
+    org_id: "00000000-0000-0000-0000-000000000001",
+    insight_type: 'cost_optimization',
     title: 'Material Cost Optimization Available',
     description:
       'Bulk ordering of steel for Sunset Villa Complex could reduce costs by approximately 8%. Current market rates suggest a favorable window for procurement.',
@@ -1503,7 +1624,8 @@ export const mockAIInsights: AIInsight[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[4],
-    insight_type: 'material_optimization',
+    org_id: "00000000-0000-0000-0000-000000000001",
+    insight_type: 'material_shortage',
     title: 'Paint Usage Above Average',
     description:
       'Skyline Apartment Phase 2 paint consumption is 15% higher than comparable projects. This may indicate wastage during application or quality issues with the paint.',
@@ -1518,7 +1640,8 @@ export const mockAIInsights: AIInsight[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[2],
-    insight_type: 'risk_assessment',
+    org_id: "00000000-0000-0000-0000-000000000001",
+    insight_type: 'delay_risk',
     title: 'Rock Layer Impact on Foundation',
     description:
       'The unexpected rock layer encountered at Harbor View Residency may increase foundation costs by 12-15% and add 1-2 weeks to the timeline. Geotechnical re-assessment recommended.',
@@ -1534,7 +1657,8 @@ export const mockAIInsights: AIInsight[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[3],
-    insight_type: 'weather_impact',
+    org_id: "00000000-0000-0000-0000-000000000001",
+    insight_type: 'delay_risk',
     title: 'Monsoon Preparation Needed',
     description:
       'Monsoon season is approaching. Green Valley School project requires additional waterproofing measures for exposed concrete and stored materials.',
@@ -1550,7 +1674,8 @@ export const mockAIInsights: AIInsight[] = [
   {
     id: uuidv4(),
     project_id: PROJECT_IDS[5],
-    insight_type: 'cost_analysis',
+    org_id: "00000000-0000-0000-0000-000000000001",
+    insight_type: 'cost_optimization',
     title: 'Early Stage Budget Monitoring',
     description:
       'Riverside Commercial Hub is in early stages with 12% progress. Current spending is within budget but monitor closely as foundation costs can vary significantly.',
@@ -1580,7 +1705,7 @@ export const mockMonthlyExpenses: MonthlyExpense[] = [
   { month: 'Feb 2025', amount: 1450000, category: 'Cement' },
   { month: 'Mar 2025', amount: 1800000, category: 'Steel' },
   { month: 'Apr 2025', amount: 2100000, category: 'Labor' },
-  { month: 'May 2025', amount: 1950000, category: 'Finishing' },
+  { month: 'May 2025', amount: 1950000, category: 'Miscellaneous' },
   { month: 'Jun 2025', amount: 850000, category: 'Miscellaneous' },
   { month: 'Jan 2025', amount: 450000, category: 'Machinery' },
   { month: 'Feb 2025', amount: 320000, category: 'Transport' },
@@ -1671,5 +1796,60 @@ export const mockProjectProgress: ProjectProgress[] = [
     project_name: 'Riverside Commercial Hub',
     progress: 12,
     status: 'Planning',
+  },
+]
+
+export const mockRoadmaps: Roadmap[] = [
+  {
+    id: 'roadmap-001',
+    project_id: PROJECT_IDS[0],
+    org_id: ORG_ID,
+    title: 'Sunset Villa - Construction Roadmap',
+    description: 'Complete construction roadmap from foundation to handover for Sunset Villa Complex.',
+    phases: [
+      { id: 'phase-1', name: 'Foundation & Excavation', status: 'completed', progress: 100, start_date: '2024-06-01', end_date: '2024-09-30', notes: 'Foundation work completed on schedule.' },
+      { id: 'phase-2', name: 'Structure & Columns', status: 'in_progress', progress: 65, start_date: '2024-10-01', end_date: '2025-03-31', notes: 'Column and slab work for floors 1-3 in progress.' },
+      { id: 'phase-3', name: 'Brickwork & Plastering', status: 'not_started', progress: 0, start_date: '2025-04-01', end_date: '2025-07-31', notes: 'Scheduled to start after structure completion.' },
+      { id: 'phase-4', name: 'MEP (Plumbing & Electrical)', status: 'not_started', progress: 0, start_date: '2025-06-01', end_date: '2025-09-30', notes: '' },
+      { id: 'phase-5', name: 'Finishing & Handover', status: 'not_started', progress: 0, start_date: '2025-08-01', end_date: '2025-12-31', notes: '' },
+    ],
+    created_by: USER_IDS.admin,
+    created_at: '2024-06-01T08:00:00Z',
+    updated_at: '2025-06-10T08:00:00Z',
+  },
+  {
+    id: 'roadmap-002',
+    project_id: PROJECT_IDS[1],
+    org_id: ORG_ID,
+    title: 'Metro Office Tower - Construction Roadmap',
+    description: 'High-rise office tower construction roadmap with 12 floors.',
+    phases: [
+      { id: 'phase-1', name: 'Foundation & Basement', status: 'completed', progress: 100, start_date: '2024-03-15', end_date: '2024-07-31', notes: 'Deep foundation with pile caps completed.' },
+      { id: 'phase-2', name: 'Structural Frame (Floors 1-6)', status: 'completed', progress: 100, start_date: '2024-08-01', end_date: '2025-01-31', notes: ' RCC frame for lower floors completed.' },
+      { id: 'phase-3', name: 'Brickwork & MEP Lower Floors', status: 'in_progress', progress: 55, start_date: '2025-01-01', end_date: '2025-06-30', notes: 'Brickwork on floors 1-7, MEP on floors 1-4.' },
+      { id: 'phase-4', name: 'Structural Frame (Floors 7-12)', status: 'in_progress', progress: 30, start_date: '2025-02-01', end_date: '2025-08-31', notes: 'Floor 8 slab casting in progress.' },
+      { id: 'phase-5', name: 'Finishing & Exterior', status: 'not_started', progress: 0, start_date: '2025-07-01', end_date: '2025-12-31', notes: '' },
+      { id: 'phase-6', name: 'Commissioning & Handover', status: 'not_started', progress: 0, start_date: '2025-11-01', end_date: '2026-02-28', notes: '' },
+    ],
+    created_by: USER_IDS.admin,
+    created_at: '2024-03-15T08:00:00Z',
+    updated_at: '2025-06-10T08:00:00Z',
+  },
+  {
+    id: 'roadmap-003',
+    project_id: PROJECT_IDS[4],
+    org_id: ORG_ID,
+    title: 'Skyline Apartments - Construction Roadmap',
+    description: 'Apartment finishing phase roadmap.',
+    phases: [
+      { id: 'phase-1', name: 'Structure Complete', status: 'completed', progress: 100, start_date: '2024-08-15', end_date: '2025-02-28', notes: 'All floors structure completed.' },
+      { id: 'phase-2', name: 'Brickwork & Plumbing', status: 'completed', progress: 100, start_date: '2025-01-01', end_date: '2025-04-30', notes: 'All units brickwork and plumbing rough-in done.' },
+      { id: 'phase-3', name: 'Electrical & Tiling', status: 'in_progress', progress: 75, start_date: '2025-04-01', end_date: '2025-06-30', notes: 'Tiling in 70% apartments, electrical in 80%.' },
+      { id: 'phase-4', name: 'Painting & Fixtures', status: 'in_progress', progress: 40, start_date: '2025-05-15', end_date: '2025-08-15', notes: 'Painting started on lower floors.' },
+      { id: 'phase-5', name: 'Final Inspection & Handover', status: 'not_started', progress: 0, start_date: '2025-08-01', end_date: '2025-10-31', notes: '' },
+    ],
+    created_by: USER_IDS.admin,
+    created_at: '2024-08-15T08:00:00Z',
+    updated_at: '2025-06-10T08:00:00Z',
   },
 ]
