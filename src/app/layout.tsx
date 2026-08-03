@@ -14,8 +14,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BuildTrack AI - Construction Project Management",
-  description: "AI-powered construction project management platform for builders, contractors, and developers",
+  title: "BuildTrack - Construction Project Management",
+  description: "Construction project management platform for builders, contractors, and developers",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "BuildTrack",
+  },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#f97316",
 };
 
 export default function RootLayout({

@@ -21,7 +21,7 @@ export async function signUp(
   return { data, error }
 }
 
-export async function signIn(email: string, password: string) {
+export async function signIn(email: string, password: string, persistSession = true) {
   const supabase = createClient()
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -44,6 +44,12 @@ export async function signOut() {
     await supabase.auth.signOut()
   } catch {
     // ignore
+  }
+
+  // Clear Remember Me flags
+  if (typeof document !== "undefined") {
+    document.cookie = "bt_no_persist=; path=/; max-age=0"
+    sessionStorage.removeItem("bt_session_active")
   }
 
   return { error: null }

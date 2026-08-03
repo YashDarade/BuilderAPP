@@ -57,7 +57,24 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       setLoading(false)
     }
 
-    // Step 1: Try getSession() directly (most reliable)
+    // Step 1: Check "Remember Me" flags
+    // If bt_no_persist cookie exists but bt_session_active is missing (browser was reopened),
+    // the user did not check "Remember Me" — sign out
+    const noPersist = document.cookie.includes("bt_no_persist=1")
+    const sessionActive = sessionStorage.getItem("bt_session_active")
+
+    if (noPersist && !sessionActive) {
+      console.log("[AuthGuard] No-persist flag set and session not active — signing out")
+      supabase.auth.signOut().catch(() => {})
+      document.cookie = "bt_no_persist=; path=/; max-age=0"
+      resolvedRef.current = true
+      setChecking(false)
+      setLoading(false)
+      window.location.href = "/sign-in"
+      return
+    }
+
+    // Step 2: Try getSession() directly (most reliable)
     supabase.auth.getSession().then(({ data: { session } }: { data: { session: any } }) => {
       if (resolvedRef.current) return
 
@@ -102,12 +119,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-orange-500">
-            <HardHat className="h-6 w-6 text-white" />
-          </div>
+          <img src="/icon-192.png" alt="BuildTrack" className="h-12 w-12 rounded-lg" />
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Loading BuildTrack AI...</span>
+            <span>Loading BuildTrack...</span>
           </div>
         </div>
       </div>

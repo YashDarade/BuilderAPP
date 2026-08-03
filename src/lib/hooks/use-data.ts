@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react"
 import { createClient } from "@/lib/supabase/config"
 import { useStore } from "@/lib/store"
+import { fetchWithCache } from "@/lib/offline/cache"
+import type { StoreName } from "@/lib/offline/db"
 import type { Project, Expense, Material, SitePhoto, ProgressReport, Notification, BudgetAlert, Roadmap, BillScan, ActivityLog, ActivityAction, EntityType } from "@/lib/types"
 
 function getSupabase() {
@@ -18,14 +20,17 @@ function getCurrentUserId(): string | null {
 }
 
 // Generic query hook with loading/error states
+// cacheStore: optional IndexedDB store name for offline-first reads
 function useSupabaseQuery<T>(
   fetcher: () => Promise<T>,
-  deps: any[] = []
+  deps: any[] = [],
+  cacheStore?: StoreName
 ) {
   const [data, setData] = useState<T | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
+  const [fromCache, setFromCache] = useState(false)
   const { currentUser } = useStore()
 
   useEffect(() => {
@@ -33,8 +38,24 @@ function useSupabaseQuery<T>(
     let cancelled = false
     setIsLoading(true)
     setError(null)
-    fetcher()
-      .then((result) => { if (!cancelled) setData(result) })
+
+    const run = async () => {
+      if (cacheStore) {
+        const result = await fetchWithCache(
+          cacheStore,
+          fetcher as () => Promise<{ id: string }[]>
+        )
+        if (!cancelled) {
+          setData(result.data as T)
+          setFromCache(result.fromCache)
+        }
+      } else {
+        const result = await fetcher()
+        if (!cancelled) setData(result)
+      }
+    }
+
+    run()
       .catch((e) => { if (!cancelled) setError(e.message) })
       .finally(() => { if (!cancelled) setIsLoading(false) })
     return () => { cancelled = true }
@@ -42,7 +63,7 @@ function useSupabaseQuery<T>(
 
   const refetch = useCallback(() => setRetryCount((c) => c + 1), [])
 
-  return { data, isLoading, error, refetch }
+  return { data, isLoading, error, refetch, fromCache }
 }
 
 // ============================================================
@@ -57,7 +78,7 @@ export function useProjects() {
       .order("created_at", { ascending: false })
     if (error) throw error
     return (data || []) as Project[]
-  })
+  }, [], "projects")
 }
 
 export function useProject(id: string | undefined) {
@@ -114,7 +135,7 @@ export function useExpenses(projectId?: string) {
     const { data, error } = await query
     if (error) throw error
     return (data || []) as Expense[]
-  }, [projectId])
+  }, [projectId], "expenses")
 }
 
 export async function createExpense(expense: Omit<Expense, "id" | "created_at" | "org_id">) {
@@ -149,7 +170,7 @@ export function useMaterials(projectId?: string) {
     const { data, error } = await query
     if (error) throw error
     return (data || []) as Material[]
-  }, [projectId])
+  }, [projectId], "materials")
 }
 
 export async function createMaterial(material: Omit<Material, "id" | "created_at" | "updated_at" | "quantity_remaining" | "total_cost" | "org_id">) {
@@ -184,7 +205,7 @@ export function usePhotos(projectId?: string) {
     const { data, error } = await query
     if (error) throw error
     return (data || []) as SitePhoto[]
-  }, [projectId])
+  }, [projectId], "site_photos")
 }
 
 export async function uploadPhoto(
@@ -249,7 +270,7 @@ export function useReports(projectId?: string) {
     const { data, error } = await query
     if (error) throw error
     return (data || []) as ProgressReport[]
-  }, [projectId])
+  }, [projectId], "progress_reports")
 }
 
 export async function createReport(report: Omit<ProgressReport, "id" | "created_at" | "org_id">) {
@@ -275,7 +296,7 @@ export function useNotifications() {
       .order("created_at", { ascending: false })
     if (error) throw error
     return (data || []) as Notification[]
-  })
+  }, [], "notifications")
 }
 
 export async function markNotificationRead(id: string) {
@@ -311,7 +332,7 @@ export function useBudgetAlerts() {
       .order("created_at", { ascending: false })
     if (error) throw error
     return (data || []) as BudgetAlert[]
-  })
+  }, [], "budget_alerts")
 }
 
 // ============================================================
@@ -389,7 +410,7 @@ export function useRoadmaps(projectId?: string) {
     const { data, error } = await query
     if (error) throw error
     return (data || []) as Roadmap[]
-  }, [projectId])
+  }, [projectId], "roadmaps")
 }
 
 export async function createRoadmap(roadmap: Omit<Roadmap, "id" | "created_at" | "updated_at" | "org_id">) {
@@ -512,7 +533,7 @@ export function useActivityLogs(limit = 50) {
       .limit(limit)
     if (error) throw error
     return (data || []) as ActivityLog[]
-  })
+  }, [limit], "activity_logs")
 }
 
 export async function logActivity(params: {

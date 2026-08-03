@@ -100,12 +100,10 @@ export function Sidebar() {
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between px-4 py-5">
             <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500">
-                <HardHat className="h-5 w-5 text-white" />
-              </div>
+              <img src="/icon-192.png" alt="BuildTrack" className="h-9 w-9 rounded-lg" />
               <div>
                 <h1 className="text-lg font-bold">BuildTrack</h1>
-                <p className="text-[10px] text-orange-400 -mt-1">AI-Powered Construction</p>
+                <p className="text-[10px] text-orange-400 -mt-1">Construction Management</p>
               </div>
             </Link>
             <Button

@@ -132,13 +132,11 @@ export default function SignUpPage() {
     <Card className="border-0 shadow-xl">
       <CardHeader className="space-y-1 pb-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
-            <span className="text-sm font-bold text-primary-foreground">BT</span>
-          </div>
-          <CardTitle className="text-xl font-semibold">BuildTrack AI</CardTitle>
+          <img src="/icon-192.png" alt="BuildTrack" className="h-8 w-8 rounded-md" />
+          <CardTitle className="text-xl font-semibold">BuildTrack</CardTitle>
         </div>
         <CardDescription>
-          Fill in the details to create your BuildTrack AI account
+          Fill in the details to create your BuildTrack account
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
