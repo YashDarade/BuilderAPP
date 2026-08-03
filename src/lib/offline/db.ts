@@ -13,6 +13,7 @@ const STORES = [
   "roadmaps",
   "budget_alerts",
   "activity_logs",
+  "users",
 ] as const
 
 type StoreName = (typeof STORES)[number]

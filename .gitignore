@@ -50,3 +50,7 @@ public/worker-*.js.map
 public/fallback-*.js
 public/swe-worker-*.js
 public/swe-worker-*.js.map
+
+# playwright
+/playwright-report/
+/test-results/

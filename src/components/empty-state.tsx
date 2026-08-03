@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils"
-import { FolderOpen, Camera, FileText, Package, Receipt, Map, Bell, Building2, ScanLine, Brain } from "lucide-react"
+import { FolderOpen, Camera, FileText, Package, Receipt, Map, Bell, Building2, ScanLine, Brain, Users } from "lucide-react"
 
 const icons = {
   projects: FolderOpen,
@@ -12,6 +12,7 @@ const icons = {
   clientPortal: Building2,
   bills: ScanLine,
   aiTools: Brain,
+  team: Users,
   default: FolderOpen,
 }
 

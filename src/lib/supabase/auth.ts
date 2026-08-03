@@ -68,31 +68,13 @@ export async function getUser(): Promise<User | null> {
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error || !user) return null
 
-  // Try auth_id first, fallback to email
-  let { data: profile } = await supabase
-    .from('users')
-    .select('*')
-    .eq('auth_id', user.id)
-    .single()
+  const { data: profileRows } = await supabase.rpc("get_user_profile", {
+    user_auth_id: user.id,
+    user_email: user.email,
+  })
 
-  if (!profile) {
-    const fallback = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', user.email)
-      .single()
-    profile = fallback.data
-
-    // Backfill auth_id for next time
-    if (profile) {
-      await supabase
-        .from('users')
-        .update({ auth_id: user.id })
-        .eq('id', profile.id)
-    }
-  }
-
-  return profile as User | null
+  const profile = Array.isArray(profileRows) ? profileRows[0] : profileRows
+  return (profile as User) || null
 }
 
 export async function getSession() {

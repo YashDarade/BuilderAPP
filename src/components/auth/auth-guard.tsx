@@ -19,38 +19,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     async function loadProfile(session: any) {
       if (resolvedRef.current) return
 
-      // Try auth_id first, fallback to email
-      let { data: profile } = await supabase
-        .from("users")
-        .select("*")
-        .eq("auth_id", session.user.id)
-        .single()
+      const { data: profileRows } = await supabase.rpc("get_user_profile", {
+        user_auth_id: session.user.id,
+        user_email: session.user.email,
+      })
+
+      const profile = Array.isArray(profileRows) ? profileRows[0] : profileRows
 
       if (!profile) {
-        const fallback = await supabase
-          .from("users")
-          .select("*")
-          .eq("email", session.user.email)
-          .single()
-        profile = fallback.data
-
-        if (profile) {
-          await supabase
-            .from("users")
-            .update({ auth_id: session.user.id })
-            .eq("id", profile.id)
-        }
-      }
-
-      if (!profile) {
-        console.error("[AuthGuard] No profile found")
         resolvedRef.current = true
         try { await supabase.auth.signOut() } catch {}
         window.location.href = "/sign-in"
         return
       }
 
-      console.log("[AuthGuard] Profile loaded:", profile.email, profile.role)
       resolvedRef.current = true
       login(profile as any)
       setChecking(false)
@@ -64,7 +46,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     const sessionActive = sessionStorage.getItem("bt_session_active")
 
     if (noPersist && !sessionActive) {
-      console.log("[AuthGuard] No-persist flag set and session not active — signing out")
       supabase.auth.signOut().catch(() => {})
       document.cookie = "bt_no_persist=; path=/; max-age=0"
       resolvedRef.current = true
@@ -79,16 +60,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       if (resolvedRef.current) return
 
       if (session) {
-        console.log("[AuthGuard] getSession found session")
         loadProfile(session)
         return
       }
 
-      // Step 2: No session from getSession — set a short timeout
-      // onAuthStateChange may still fire with the session
       timeout = setTimeout(() => {
         if (resolvedRef.current) return
-        console.log("[AuthGuard] No session after timeout — redirecting")
         resolvedRef.current = true
         setChecking(false)
         setLoading(false)
@@ -100,7 +77,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event: string, session: any) => {
-      console.log("[AuthGuard] onAuthStateChange:", event, "session:", !!session)
       if (resolvedRef.current) return
 
       if (session) {

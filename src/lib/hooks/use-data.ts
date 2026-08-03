@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/config"
 import { useStore } from "@/lib/store"
 import { fetchWithCache } from "@/lib/offline/cache"
 import type { StoreName } from "@/lib/offline/db"
-import type { Project, Expense, Material, SitePhoto, ProgressReport, Notification, BudgetAlert, Roadmap, BillScan, ActivityLog, ActivityAction, EntityType } from "@/lib/types"
+import type { Project, Expense, Material, SitePhoto, ProgressReport, Notification, BudgetAlert, Roadmap, BillScan, ActivityLog, ActivityAction, EntityType, User } from "@/lib/types"
 
 function getSupabase() {
   return createClient()
@@ -19,8 +19,6 @@ function getCurrentUserId(): string | null {
   return useStore.getState().currentUser?.id || null
 }
 
-// Generic query hook with loading/error states
-// cacheStore: optional IndexedDB store name for offline-first reads
 function useSupabaseQuery<T>(
   fetcher: () => Promise<T>,
   deps: any[] = [],
@@ -72,10 +70,9 @@ function useSupabaseQuery<T>(
 export function useProjects() {
   return useSupabaseQuery<Project[]>(async () => {
     const supabase = getSupabase()
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .order("created_at", { ascending: false })
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const { data, error } = await supabase.rpc("get_all_projects", { p_org_id: orgId })
     if (error) throw error
     return (data || []) as Project[]
   }, [], "projects")
@@ -85,42 +82,55 @@ export function useProject(id: string | undefined) {
   return useSupabaseQuery<Project | null>(async () => {
     if (!id) return null
     const supabase = getSupabase()
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .eq("id", id)
-      .single()
+    const { data, error } = await supabase.rpc("get_project", { p_id: id })
     if (error) throw error
-    return data as Project | null
+    return (data?.[0] || null) as Project | null
   }, [id])
 }
 
 export async function createProject(project: Omit<Project, "id" | "created_at" | "updated_at">) {
   const supabase = getSupabase()
-  const { data, error } = await supabase
-    .from("projects")
-    .insert(project)
-    .select()
-    .single()
+  const { data, error } = await supabase.rpc("insert_project", {
+    p_name: project.name,
+    p_client_name: project.client_name,
+    p_address: project.address || null,
+    p_start_date: project.start_date || null,
+    p_expected_completion_date: project.expected_completion_date || null,
+    p_budget: project.budget || 0,
+    p_status: project.status || "Planning",
+    p_progress: project.progress || 0,
+    p_org_id: project.org_id,
+    p_created_by: project.created_by || null,
+    p_client_id: project.client_id || null,
+    p_engineer_id: project.engineer_id || null,
+  })
   if (error) throw error
-  return data as Project
+  return data?.[0] as Project
 }
 
 export async function updateProject(id: string, updates: Partial<Project>) {
   const supabase = getSupabase()
-  const { data, error } = await supabase
-    .from("projects")
-    .update(updates)
-    .eq("id", id)
-    .select()
-    .single()
+  const { data, error } = await supabase.rpc("update_project", {
+    p_id: id,
+    p_name: updates.name ?? null,
+    p_client_name: updates.client_name ?? null,
+    p_address: updates.address ?? null,
+    p_start_date: updates.start_date ?? null,
+    p_expected_completion_date: updates.expected_completion_date ?? null,
+    p_budget: updates.budget ?? null,
+    p_spent: updates.spent ?? null,
+    p_status: updates.status ?? null,
+    p_progress: updates.progress ?? null,
+    p_client_id: updates.client_id ?? null,
+    p_engineer_id: updates.engineer_id ?? null,
+  })
   if (error) throw error
-  return data as Project
+  return data?.[0] as Project
 }
 
 export async function deleteProject(id: string) {
   const supabase = getSupabase()
-  const { error } = await supabase.from("projects").delete().eq("id", id)
+  const { error } = await supabase.rpc("delete_project", { p_id: id })
   if (error) throw error
 }
 
@@ -130,9 +140,14 @@ export async function deleteProject(id: string) {
 export function useExpenses(projectId?: string) {
   return useSupabaseQuery<Expense[]>(async () => {
     const supabase = getSupabase()
-    let query = supabase.from("expenses").select("*").order("date", { ascending: false })
-    if (projectId) query = query.eq("project_id", projectId)
-    const { data, error } = await query
+    if (projectId) {
+      const { data, error } = await supabase.rpc("get_project_expenses", { p_project_id: projectId })
+      if (error) throw error
+      return (data || []) as Expense[]
+    }
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const { data, error } = await supabase.rpc("get_all_expenses", { p_org_id: orgId })
     if (error) throw error
     return (data || []) as Expense[]
   }, [projectId], "expenses")
@@ -141,21 +156,40 @@ export function useExpenses(projectId?: string) {
 export async function createExpense(expense: Omit<Expense, "id" | "created_at" | "org_id">) {
   const supabase = getSupabase()
   const orgId = getCurrentOrgId()
-  const { data, error } = await supabase.from("expenses").insert({ ...expense, org_id: orgId }).select().single()
+  const userId = getCurrentUserId()
+  const { data, error } = await supabase.rpc("insert_expense", {
+    p_project_id: expense.project_id,
+    p_amount: expense.amount,
+    p_category: expense.category,
+    p_vendor: expense.vendor || null,
+    p_description: expense.description || null,
+    p_date: expense.date,
+    p_bill_url: expense.bill_url || null,
+    p_created_by: userId,
+    p_org_id: orgId,
+  })
   if (error) throw error
-  return data as Expense
+  return data?.[0] as Expense
 }
 
 export async function updateExpense(id: string, updates: Partial<Expense>) {
   const supabase = getSupabase()
-  const { data, error } = await supabase.from("expenses").update(updates).eq("id", id).select().single()
+  const { data, error } = await supabase.rpc("update_expense", {
+    p_id: id,
+    p_amount: updates.amount ?? null,
+    p_category: updates.category ?? null,
+    p_vendor: updates.vendor ?? null,
+    p_description: updates.description ?? null,
+    p_date: updates.date ?? null,
+    p_bill_url: updates.bill_url ?? null,
+  })
   if (error) throw error
-  return data as Expense
+  return data?.[0] as Expense
 }
 
 export async function deleteExpense(id: string) {
   const supabase = getSupabase()
-  const { error } = await supabase.from("expenses").delete().eq("id", id)
+  const { error } = await supabase.rpc("delete_expense", { p_id: id })
   if (error) throw error
 }
 
@@ -165,9 +199,14 @@ export async function deleteExpense(id: string) {
 export function useMaterials(projectId?: string) {
   return useSupabaseQuery<Material[]>(async () => {
     const supabase = getSupabase()
-    let query = supabase.from("materials").select("*").order("name")
-    if (projectId) query = query.eq("project_id", projectId)
-    const { data, error } = await query
+    if (projectId) {
+      const { data, error } = await supabase.rpc("get_project_materials", { p_project_id: projectId })
+      if (error) throw error
+      return (data || []) as Material[]
+    }
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const { data, error } = await supabase.rpc("get_all_materials", { p_org_id: orgId })
     if (error) throw error
     return (data || []) as Material[]
   }, [projectId], "materials")
@@ -176,21 +215,42 @@ export function useMaterials(projectId?: string) {
 export async function createMaterial(material: Omit<Material, "id" | "created_at" | "updated_at" | "quantity_remaining" | "total_cost" | "org_id">) {
   const supabase = getSupabase()
   const orgId = getCurrentOrgId()
-  const { data, error } = await supabase.from("materials").insert({ ...material, org_id: orgId }).select().single()
+  const { data, error } = await supabase.rpc("insert_material", {
+    p_project_id: material.project_id,
+    p_name: material.name,
+    p_category: material.category,
+    p_quantity_purchased: material.quantity_purchased || 0,
+    p_quantity_used: material.quantity_used || 0,
+    p_unit: material.unit || "pcs",
+    p_cost_per_unit: material.cost_per_unit || 0,
+    p_vendor: material.vendor || null,
+    p_reorder_level: material.reorder_level || 0,
+    p_org_id: orgId,
+  })
   if (error) throw error
-  return data as Material
+  return data?.[0] as Material
 }
 
 export async function updateMaterial(id: string, updates: Partial<Material>) {
   const supabase = getSupabase()
-  const { data, error } = await supabase.from("materials").update(updates).eq("id", id).select().single()
+  const { data, error } = await supabase.rpc("update_material", {
+    p_id: id,
+    p_name: updates.name ?? null,
+    p_category: updates.category ?? null,
+    p_quantity_purchased: updates.quantity_purchased ?? null,
+    p_quantity_used: updates.quantity_used ?? null,
+    p_unit: updates.unit ?? null,
+    p_cost_per_unit: updates.cost_per_unit ?? null,
+    p_vendor: updates.vendor ?? null,
+    p_reorder_level: updates.reorder_level ?? null,
+  })
   if (error) throw error
-  return data as Material
+  return data?.[0] as Material
 }
 
 export async function deleteMaterial(id: string) {
   const supabase = getSupabase()
-  const { error } = await supabase.from("materials").delete().eq("id", id)
+  const { error } = await supabase.rpc("delete_material", { p_id: id })
   if (error) throw error
 }
 
@@ -200,9 +260,8 @@ export async function deleteMaterial(id: string) {
 export function usePhotos(projectId?: string) {
   return useSupabaseQuery<SitePhoto[]>(async () => {
     const supabase = getSupabase()
-    let query = supabase.from("site_photos").select("*").order("created_at", { ascending: false })
-    if (projectId) query = query.eq("project_id", projectId)
-    const { data, error } = await query
+    if (!projectId) return []
+    const { data, error } = await supabase.rpc("get_project_photos", { p_project_id: projectId })
     if (error) throw error
     return (data || []) as SitePhoto[]
   }, [projectId], "site_photos")
@@ -231,23 +290,19 @@ export async function uploadPhoto(
   const { data: urlData } = supabase.storage.from("site-photos").getPublicUrl(filePath)
   const publicUrl = urlData.publicUrl
 
-  const { data, error } = await supabase
-    .from("site_photos")
-    .insert({
-      project_id: projectId,
-      org_id: orgId,
-      url: publicUrl,
-      thumbnail_url: publicUrl,
-      notes,
-      category,
-      gps_lat: 0,
-      gps_lng: 0,
-      uploaded_by: userId,
-    })
-    .select()
-    .single()
+  const { data, error } = await supabase.rpc("insert_photo", {
+    p_project_id: projectId,
+    p_url: publicUrl,
+    p_thumbnail_url: publicUrl,
+    p_notes: notes,
+    p_category: category,
+    p_gps_lat: 0,
+    p_gps_lng: 0,
+    p_uploaded_by: userId,
+    p_org_id: orgId,
+  })
   if (error) throw error
-  return data as SitePhoto
+  return data?.[0] as SitePhoto
 }
 
 export async function deletePhoto(id: string, storagePath?: string) {
@@ -255,7 +310,7 @@ export async function deletePhoto(id: string, storagePath?: string) {
   if (storagePath) {
     await supabase.storage.from("site-photos").remove([storagePath])
   }
-  const { error } = await supabase.from("site_photos").delete().eq("id", id)
+  const { error } = await supabase.rpc("delete_photo", { p_id: id })
   if (error) throw error
 }
 
@@ -265,9 +320,8 @@ export async function deletePhoto(id: string, storagePath?: string) {
 export function useReports(projectId?: string) {
   return useSupabaseQuery<ProgressReport[]>(async () => {
     const supabase = getSupabase()
-    let query = supabase.from("progress_reports").select("*").order("report_date", { ascending: false })
-    if (projectId) query = query.eq("project_id", projectId)
-    const { data, error } = await query
+    if (!projectId) return []
+    const { data, error } = await supabase.rpc("get_project_progress", { p_project_id: projectId })
     if (error) throw error
     return (data || []) as ProgressReport[]
   }, [projectId], "progress_reports")
@@ -276,9 +330,21 @@ export function useReports(projectId?: string) {
 export async function createReport(report: Omit<ProgressReport, "id" | "created_at" | "org_id">) {
   const supabase = getSupabase()
   const orgId = getCurrentOrgId()
-  const { data, error } = await supabase.from("progress_reports").insert({ ...report, org_id: orgId }).select().single()
+  const userId = getCurrentUserId()
+  const { data, error } = await supabase.rpc("insert_report", {
+    p_project_id: report.project_id,
+    p_report_date: report.report_date,
+    p_work_completed: report.work_completed || null,
+    p_material_used: report.material_used || null,
+    p_issues: report.issues || null,
+    p_delays: report.delays || null,
+    p_tomorrow_plan: report.tomorrow_plan || null,
+    p_photos: report.photos || [],
+    p_created_by: userId,
+    p_org_id: orgId,
+  })
   if (error) throw error
-  return data as ProgressReport
+  return data?.[0] as ProgressReport
 }
 
 // ============================================================
@@ -289,11 +355,7 @@ export function useNotifications() {
     const supabase = getSupabase()
     const userId = getCurrentUserId()
     if (!userId) return []
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
+    const { data, error } = await supabase.rpc("get_notifications", { p_user_id: userId })
     if (error) throw error
     return (data || []) as Notification[]
   }, [], "notifications")
@@ -301,10 +363,7 @@ export function useNotifications() {
 
 export async function markNotificationRead(id: string) {
   const supabase = getSupabase()
-  const { error } = await supabase
-    .from("notifications")
-    .update({ is_read: true })
-    .eq("id", id)
+  const { error } = await supabase.rpc("mark_notification_read", { p_id: id })
   if (error) throw error
 }
 
@@ -312,11 +371,7 @@ export async function markAllNotificationsRead() {
   const supabase = getSupabase()
   const userId = getCurrentUserId()
   if (!userId) return
-  const { error } = await supabase
-    .from("notifications")
-    .update({ is_read: true })
-    .eq("user_id", userId)
-    .eq("is_read", false)
+  const { error } = await supabase.rpc("mark_all_notifications_read", { p_user_id: userId })
   if (error) throw error
 }
 
@@ -326,10 +381,9 @@ export async function markAllNotificationsRead() {
 export function useBudgetAlerts() {
   return useSupabaseQuery<BudgetAlert[]>(async () => {
     const supabase = getSupabase()
-    const { data, error } = await supabase
-      .from("budget_alerts")
-      .select("*")
-      .order("created_at", { ascending: false })
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const { data, error } = await supabase.rpc("get_all_budget_alerts", { p_org_id: orgId })
     if (error) throw error
     return (data || []) as BudgetAlert[]
   }, [], "budget_alerts")
@@ -341,10 +395,9 @@ export function useBudgetAlerts() {
 export function useBillScans() {
   return useSupabaseQuery<BillScan[]>(async () => {
     const supabase = getSupabase()
-    const { data, error } = await supabase
-      .from("bill_scans")
-      .select("*")
-      .order("created_at", { ascending: false })
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const { data, error } = await supabase.rpc("get_all_bill_scans", { p_org_id: orgId })
     if (error) throw error
     return (data || []) as BillScan[]
   })
@@ -353,8 +406,7 @@ export function useBillScans() {
 export async function uploadBillScan(file: File): Promise<BillScan> {
   const supabase = getSupabase()
   const orgId = getCurrentOrgId()
-  const userId = getCurrentUserId()
-  if (!orgId || !userId) throw new Error("Not authenticated")
+  if (!orgId) throw new Error("Not authenticated")
 
   const ext = file.name.split(".").pop() || "jpg"
   const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
@@ -368,35 +420,35 @@ export async function uploadBillScan(file: File): Promise<BillScan> {
   const { data: urlData } = supabase.storage.from("bill-scans").getPublicUrl(filePath)
   const publicUrl = urlData.publicUrl
 
-  const { data, error } = await supabase
-    .from("bill_scans")
-    .insert({
-      org_id: orgId,
-      image_url: publicUrl,
-      expense_id: null,
-      vendor_name: "Processing...",
-      amount: 0,
-      date: new Date().toISOString().split("T")[0],
-      gst_number: null,
-      confidence_score: 0,
-      status: "processing",
-    })
-    .select()
-    .single()
+  const { data, error } = await supabase.rpc("insert_bill_scan", {
+    p_org_id: orgId,
+    p_image_url: publicUrl,
+    p_expense_id: null,
+    p_vendor_name: "Processing...",
+    p_amount: 0,
+    p_date: new Date().toISOString().split("T")[0],
+    p_gst_number: null,
+    p_confidence_score: 0,
+    p_status: "processing",
+  })
   if (error) throw error
-  return data as BillScan
+  return data?.[0] as BillScan
 }
 
 export async function updateBillScan(id: string, updates: Partial<BillScan>) {
   const supabase = getSupabase()
-  const { data, error } = await supabase
-    .from("bill_scans")
-    .update(updates)
-    .eq("id", id)
-    .select()
-    .single()
+  const { data, error } = await supabase.rpc("update_bill_scan", {
+    p_id: id,
+    p_vendor_name: updates.vendor_name ?? null,
+    p_amount: updates.amount ?? null,
+    p_date: updates.date ?? null,
+    p_gst_number: updates.gst_number ?? null,
+    p_confidence_score: updates.confidence_score ?? null,
+    p_status: updates.status ?? null,
+    p_expense_id: updates.expense_id ?? null,
+  })
   if (error) throw error
-  return data as BillScan
+  return data?.[0] as BillScan
 }
 
 // ============================================================
@@ -405,9 +457,14 @@ export async function updateBillScan(id: string, updates: Partial<BillScan>) {
 export function useRoadmaps(projectId?: string) {
   return useSupabaseQuery<Roadmap[]>(async () => {
     const supabase = getSupabase()
-    let query = supabase.from("roadmaps").select("*").order("created_at", { ascending: false })
-    if (projectId) query = query.eq("project_id", projectId)
-    const { data, error } = await query
+    if (projectId) {
+      const { data, error } = await supabase.rpc("get_project_roadmaps", { p_project_id: projectId })
+      if (error) throw error
+      return (data || []) as Roadmap[]
+    }
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const { data, error } = await supabase.rpc("get_all_roadmaps", { p_org_id: orgId })
     if (error) throw error
     return (data || []) as Roadmap[]
   }, [projectId], "roadmaps")
@@ -416,35 +473,39 @@ export function useRoadmaps(projectId?: string) {
 export async function createRoadmap(roadmap: Omit<Roadmap, "id" | "created_at" | "updated_at" | "org_id">) {
   const supabase = getSupabase()
   const orgId = getCurrentOrgId()
-  const { data, error } = await supabase
-    .from("roadmaps")
-    .insert({ ...roadmap, org_id: orgId })
-    .select()
-    .single()
+  const userId = getCurrentUserId()
+  const { data, error } = await supabase.rpc("insert_roadmap", {
+    p_project_id: roadmap.project_id,
+    p_org_id: orgId,
+    p_title: roadmap.title,
+    p_description: roadmap.description || "",
+    p_phases: roadmap.phases || [],
+    p_created_by: userId,
+  })
   if (error) throw error
-  return data as Roadmap
+  return data?.[0] as Roadmap
 }
 
 export async function updateRoadmap(id: string, updates: Partial<Roadmap>) {
   const supabase = getSupabase()
-  const { data, error } = await supabase
-    .from("roadmaps")
-    .update(updates)
-    .eq("id", id)
-    .select()
-    .single()
+  const { data, error } = await supabase.rpc("update_roadmap", {
+    p_id: id,
+    p_title: updates.title ?? null,
+    p_description: updates.description ?? null,
+    p_phases: updates.phases ?? null,
+  })
   if (error) throw error
-  return data as Roadmap
+  return data?.[0] as Roadmap
 }
 
 export async function deleteRoadmap(id: string) {
   const supabase = getSupabase()
-  const { error } = await supabase.from("roadmaps").delete().eq("id", id)
+  const { error } = await supabase.rpc("delete_roadmap", { p_id: id })
   if (error) throw error
 }
 
 // ============================================================
-// DASHBOARD STATS (derived from real data)
+// DASHBOARD STATS
 // ============================================================
 export function useDashboardStats() {
   const { data: projects, isLoading: projectsLoading, error: projectsError } = useProjects()
@@ -469,15 +530,15 @@ export function useDashboardStats() {
 export function useMonthlyExpenses() {
   return useSupabaseQuery<{ month: string; amount: number }[]>(async () => {
     const supabase = getSupabase()
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
     const sixMonthsAgo = new Date()
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-    const { data, error } = await supabase
-      .from("expenses")
-      .select("amount, date")
-      .gte("date", sixMonthsAgo.toISOString().split("T")[0])
-      .order("date")
+    const { data, error } = await supabase.rpc("get_expenses_for_chart", {
+      p_org_id: orgId,
+      p_since: sixMonthsAgo.toISOString().split("T")[0],
+    })
     if (error) throw error
-    // Group by month
     const grouped: Record<string, number> = {}
     data?.forEach((e: { amount?: number; date?: string }) => {
       const month = e.date?.substring(0, 7) || "Unknown"
@@ -490,11 +551,11 @@ export function useMonthlyExpenses() {
 export function useBudgetConsumption() {
   return useSupabaseQuery<{ project_id: string; project_name: string; budget: number; spent: number; percentage: number }[]>(async () => {
     const supabase = getSupabase()
-    const { data, error } = await supabase
-      .from("projects")
-      .select("id, name, budget, spent")
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const { data, error } = await supabase.rpc("get_all_projects", { p_org_id: orgId })
     if (error) throw error
-    return (data || []).map((p: { id: string; name: string; budget: number; spent: number }) => ({
+    return (data || []).map((p: any) => ({
       project_id: p.id,
       project_name: p.name,
       budget: p.budget || 0,
@@ -507,11 +568,11 @@ export function useBudgetConsumption() {
 export function useProjectProgress() {
   return useSupabaseQuery<{ project_id: string; project_name: string; progress: number; status: string }[]>(async () => {
     const supabase = getSupabase()
-    const { data, error } = await supabase
-      .from("projects")
-      .select("id, name, progress, status")
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const { data, error } = await supabase.rpc("get_all_projects", { p_org_id: orgId })
     if (error) throw error
-    return (data || []).map((p: { id: string; name: string; progress: number; status: string }) => ({
+    return (data || []).map((p: any) => ({
       project_id: p.id,
       project_name: p.name,
       progress: p.progress || 0,
@@ -526,11 +587,9 @@ export function useProjectProgress() {
 export function useActivityLogs(limit = 50) {
   return useSupabaseQuery<ActivityLog[]>(async () => {
     const supabase = getSupabase()
-    const { data, error } = await supabase
-      .from("activity_logs")
-      .select("*, users!activity_logs_user_id_fkey(full_name, avatar_url)")
-      .order("created_at", { ascending: false })
-      .limit(limit)
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const { data, error } = await supabase.rpc("get_activity_logs", { p_org_id: orgId })
     if (error) throw error
     return (data || []) as ActivityLog[]
   }, [limit], "activity_logs")
@@ -548,13 +607,66 @@ export async function logActivity(params: {
   const userId = getCurrentUserId()
   if (!orgId || !userId) return
 
-  await supabase.from("activity_logs").insert({
-    org_id: orgId,
-    user_id: userId,
-    action: params.action,
-    entity_type: params.entity_type,
-    entity_id: params.entity_id,
-    entity_name: params.entity_name,
-    details: params.details || null,
+  await supabase.rpc("insert_activity_log", {
+    p_org_id: orgId,
+    p_user_id: userId,
+    p_action: params.action,
+    p_entity_type: params.entity_type,
+    p_entity_id: params.entity_id,
+    p_entity_name: params.entity_name,
+    p_details: params.details || null,
   })
+}
+
+// ============================================================
+// TEAM MEMBERS
+// ============================================================
+export function useTeamMembers() {
+  return useSupabaseQuery<User[]>(async () => {
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const supabase = getSupabase()
+    const { data, error } = await supabase.rpc("get_org_users", { p_org_id: orgId })
+    if (error) throw error
+    return (data || []) as User[]
+  })
+}
+
+export async function addMember(params: {
+  email: string
+  full_name: string
+  role: string
+  org_id: string
+}): Promise<{ data: User; tempPassword?: string; message: string }> {
+  const supabase = getSupabase()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error("Not authenticated")
+
+  const res = await fetch("/api/team/add", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(params),
+  })
+
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error || "Failed to add member")
+  return json
+}
+
+export async function updateMemberRole(userId: string, newRole: string) {
+  const supabase = getSupabase()
+  const { error } = await supabase.rpc("update_user_role", {
+    p_user_id: userId,
+    p_role: newRole,
+  })
+  if (error) throw error
+}
+
+export async function removeMember(userId: string) {
+  const supabase = getSupabase()
+  const { error } = await supabase.rpc("delete_user", { p_user_id: userId })
+  if (error) throw error
 }
