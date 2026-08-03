@@ -1,36 +1,149 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BuildTrack
+
+BuildTrack is a construction management platform built to help builders, site engineers, and clients manage projects from a single dashboard.
+
+The project focuses on everyday construction workflows like budget tracking, expense management, material inventory, reports, and project updates. Different users have different permissions based on their role, allowing each person to access only the features relevant to them.
+
+This project is currently under active development, with more AI-assisted features planned in future versions.
+
+---
+
+## Features
+
+- Authentication using Supabase
+- Role-based access
+    - Builder
+    - Site Engineer
+    - Client
+- Project Dashboard
+- Budget Management
+- Expense Tracking
+- Material Management
+- Reports
+- Notifications
+- Site Photos
+- Client Portal
+- AI Tools
+
+---
+
+## Tech Stack
+
+Frontend
+
+- Next.js 16
+- React 19
+- TypeScript
+- Tailwind CSS
+
+Backend
+
+- Supabase
+- PostgreSQL
+- Authentication
+- Storage
+
+Libraries
+
+- Zustand
+- React Hook Form
+- Zod
+- Recharts
+- jsPDF
+
+---
+
+## Folder Structure
+
+```
+src
+│
+├── app
+├── components
+├── hooks
+├── lib
+├── store
+├── types
+└── utils
+```
+
+---
 
 ## Getting Started
 
-First, run the development server:
+Clone the repository
+
+```bash
+git clone https://github.com/YashDarade/BuilderAPP.git
+```
+
+Install dependencies
+
+```bash
+npm install
+```
+
+Create a `.env.local` file
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+Run the project
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Demo Accounts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The repository includes demo users with sample project data for testing different dashboards.
 
-## Learn More
+Available roles
 
-To learn more about Next.js, take a look at the following resources:
+- Builder
+- Site Engineer
+- Client
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Newly registered users will start with an empty workspace.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Screenshots
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Dashboard | Projects |
+|-----------|----------|
+| Add Screenshot | Add Screenshot |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Budget | Reports |
+|--------|---------|
+| Add Screenshot | Add Screenshot |
+
+---
+
+## Upcoming Features
+
+- OCR Bill Scanner
+- Material Detection using AI
+- Daily Site Logs
+- Contractor Payments
+- Mobile App Improvements
+- Push Notifications
+
+---
+
+## Why I Built This
+
+I wanted to build a project that solves a real-world problem instead of another CRUD application. Construction projects often rely on spreadsheets and messaging apps to manage work, budgets, and materials. BuildTrack is an attempt to bring those workflows into a single platform while also exploring how AI can improve project management.
+
+---
+
+## Author
+
+Yash Darade
+
+GitHub: https://github.com/YashDarade
