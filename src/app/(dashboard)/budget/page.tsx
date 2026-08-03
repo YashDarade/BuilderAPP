@@ -27,6 +27,7 @@ import {
 import { useProjects, useBudgetConsumption, useBudgetAlerts } from "@/lib/hooks/use-data"
 import { ErrorState } from "@/components/error-state"
 import { RoleGuard } from "@/components/role-guard"
+import { CHART_TOOLTIP_STYLE, CHART_LEGEND_STYLE } from "@/lib/chart-theme"
 
 const CHART_COLORS = ["#f97316", "#3b82f6", "#22c55e", "#ef4444", "#8b5cf6", "#eab308"]
 
@@ -262,11 +263,7 @@ export default function BudgetPage() {
                     formatCurrencyINR(Number(value)),
                     String(name),
                   ]}
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                  }}
+                  {...CHART_TOOLTIP_STYLE}
                 />
                 <Legend
                   verticalAlign="bottom"
@@ -274,6 +271,7 @@ export default function BudgetPage() {
                   formatter={(value) =>
                     value.length > 20 ? `${value.slice(0, 18)}...` : value
                   }
+                  {...CHART_LEGEND_STYLE}
                 />
               </PieChart>
             </ResponsiveContainer>

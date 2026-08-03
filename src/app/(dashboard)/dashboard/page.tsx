@@ -19,6 +19,7 @@ import { useStore } from "@/lib/store"
 import { isAdmin } from "@/lib/supabase/auth"
 import { ErrorState } from "@/components/error-state"
 import { cn } from "@/lib/utils"
+import { CHART_TOOLTIP_STYLE, CHART_LEGEND_STYLE } from "@/lib/chart-theme"
 import {
   FolderKanban,
   Wallet,
@@ -423,16 +424,13 @@ export default function DashboardPage() {
                   </Pie>
                   <Tooltip
                     formatter={(value, name) => [formatCurrencyFull(Number(value)), String(name)]}
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                    }}
+                    {...CHART_TOOLTIP_STYLE}
                   />
                   <Legend
                     verticalAlign="bottom"
                     height={36}
                     formatter={(value) => value.length > 20 ? `${value.slice(0, 18)}...` : value}
+                    {...CHART_LEGEND_STYLE}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -591,8 +589,7 @@ export default function DashboardPage() {
                       <YAxis tick={{ fontSize: 12 }} tickFormatter={(val) => `₹${(val / 100000).toFixed(0)}L`} tickLine={false} />
                       <Tooltip
                         formatter={(value) => [formatCurrencyFull(Number(value)), "Expenses"]}
-                        labelStyle={{ color: "hsl(var(--foreground))" }}
-                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
+                        {...CHART_TOOLTIP_STYLE}
                       />
                       <Bar dataKey="amount" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={50} />
                     </BarChart>
@@ -625,9 +622,9 @@ export default function DashboardPage() {
                       </Pie>
                       <Tooltip
                         formatter={(value, name) => [formatCurrencyFull(Number(value)), String(name)]}
-                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
+                        {...CHART_TOOLTIP_STYLE}
                       />
-                      <Legend verticalAlign="bottom" height={36} formatter={(value) => value.length > 20 ? `${value.slice(0, 18)}...` : value} />
+                      <Legend verticalAlign="bottom" height={36} formatter={(value) => value.length > 20 ? `${value.slice(0, 18)}...` : value} {...CHART_LEGEND_STYLE} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -656,7 +653,7 @@ export default function DashboardPage() {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 12 }} tickFormatter={(val) => `${val}%`} />
                       <YAxis type="category" dataKey="project_name" tick={{ fontSize: 11 }} width={150} tickLine={false} />
-                      <Tooltip formatter={(value) => [`${value}%`, "Progress"]} contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
+                      <Tooltip formatter={(value) => [`${value}%`, "Progress"]} {...CHART_TOOLTIP_STYLE} />
                       <Bar dataKey="progress" radius={[0, 4, 4, 0]} maxBarSize={24}>
                         {projectProgress.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.progress >= 60 ? "#22c55e" : entry.progress >= 40 ? "#3b82f6" : "#f97316"} />
@@ -681,7 +678,7 @@ export default function DashboardPage() {
                       <YAxis tick={{ fontSize: 12 }} tickFormatter={(val) => `₹${(val / 100000).toFixed(0)}L`} tickLine={false} />
                       <Tooltip
                         formatter={(value, name) => [formatCurrencyFull(Number(value)), name === "used" ? "Used Value" : "Remaining Value"]}
-                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
+                        {...CHART_TOOLTIP_STYLE}
                       />
                       <Legend />
                       <Bar dataKey="used" stackId="materials" fill="#ef4444" name="Used" />

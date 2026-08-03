@@ -73,6 +73,7 @@ import { isAdmin } from "@/lib/supabase/auth"
 import { reportSchema } from "@/lib/validation-schemas"
 import { ErrorState } from "@/components/error-state"
 import { toast } from "sonner"
+import { CHART_TOOLTIP_STYLE } from "@/lib/chart-theme"
 
 function formatCurrencyINR(amount: number): string {
   if (amount >= 10000000) {
@@ -454,12 +455,7 @@ export default function ReportsPage() {
                         formatCurrencyINR(Number(value)),
                         "Amount",
                       ]}
-                      labelStyle={{ color: "hsl(var(--foreground))" }}
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
+                      {...CHART_TOOLTIP_STYLE}
                     />
                     <Bar
                       dataKey="amount"

@@ -63,6 +63,7 @@ import { ErrorState } from "@/components/error-state"
 import { TablePageSkeleton } from "@/components/page-skeletons"
 import { logActivity } from "@/lib/hooks/use-data"
 import { toast } from "sonner"
+import { CHART_TOOLTIP_STYLE } from "@/lib/chart-theme"
 
 const EXPENSE_CATEGORIES: ExpenseCategory[] = [
   "Labor",
@@ -403,12 +404,7 @@ export default function ExpensesPage() {
                     formatCurrencyINR(Number(value)),
                     "Amount",
                   ]}
-                  labelStyle={{ color: "hsl(var(--foreground))" }}
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                  }}
+                  {...CHART_TOOLTIP_STYLE}
                 />
                 <Bar
                   dataKey="amount"
