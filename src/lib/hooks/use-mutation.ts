@@ -20,6 +20,12 @@ import {
   removeMember as _removeMember,
   uploadBillScan as _uploadBillScan,
   updateBillScan as _updateBillScan,
+  restoreProject as _restoreProject,
+  restoreExpense as _restoreExpense,
+  restoreMaterial as _restoreMaterial,
+  restorePhoto as _restorePhoto,
+  restoreRoadmap as _restoreRoadmap,
+  restoreTeamMember as _restoreTeamMember,
 } from "./use-data"
 import type { Project, Expense, Material, SitePhoto, ProgressReport, Roadmap, User, BillScan } from "@/lib/types"
 
@@ -33,15 +39,19 @@ export async function createProject(data: Omit<Project, "id" | "created_at" | "u
   return project
 }
 
-export async function updateProject(id: string, updates: Partial<Project>): Promise<Project> {
+export async function updateProject(id: string, updates: Partial<Project>, old_value?: Partial<Project>): Promise<Project> {
   const project = await _updateProject(id, updates)
-  emit("project.updated", project)
+  emit("project.updated", project, { old_value })
   return project
 }
 
-export async function deleteProject(id: string): Promise<void> {
+export async function deleteProject(id: string, name?: string): Promise<void> {
   await _deleteProject(id)
-  emit("project.deleted", { id })
+  emit("project.deleted", { id, name })
+}
+
+export async function restoreProject(id: string): Promise<void> {
+  await _restoreProject(id)
 }
 
 // ============================================================
@@ -54,15 +64,19 @@ export async function createExpense(data: Omit<Expense, "id" | "created_at" | "o
   return expense
 }
 
-export async function updateExpense(id: string, updates: Partial<Expense>): Promise<Expense> {
+export async function updateExpense(id: string, updates: Partial<Expense>, old_value?: Partial<Expense>): Promise<Expense> {
   const expense = await _updateExpense(id, updates)
-  emit("expense.updated", expense)
+  emit("expense.updated", expense, { old_value })
   return expense
 }
 
 export async function deleteExpense(id: string): Promise<void> {
   await _deleteExpense(id)
   emit("expense.deleted", { id })
+}
+
+export async function restoreExpense(id: string): Promise<void> {
+  await _restoreExpense(id)
 }
 
 // ============================================================
@@ -75,15 +89,19 @@ export async function createMaterial(data: Omit<Material, "id" | "created_at" | 
   return material
 }
 
-export async function updateMaterial(id: string, updates: Partial<Material>): Promise<Material> {
+export async function updateMaterial(id: string, updates: Partial<Material>, old_value?: Partial<Material>): Promise<Material> {
   const material = await _updateMaterial(id, updates)
-  emit("material.updated", material)
+  emit("material.updated", material, { old_value })
   return material
 }
 
 export async function deleteMaterial(id: string): Promise<void> {
   await _deleteMaterial(id)
   emit("material.deleted", { id })
+}
+
+export async function restoreMaterial(id: string): Promise<void> {
+  await _restoreMaterial(id)
 }
 
 // ============================================================
@@ -99,6 +117,10 @@ export async function uploadPhoto(file: File, projectId: string, category: strin
 export async function deletePhoto(id: string, storagePath?: string): Promise<void> {
   await _deletePhoto(id, storagePath)
   emit("photo.deleted", { id })
+}
+
+export async function restorePhoto(id: string): Promise<void> {
+  await _restorePhoto(id)
 }
 
 // ============================================================
@@ -121,14 +143,18 @@ export async function createRoadmap(data: Omit<Roadmap, "id" | "created_at" | "u
   return roadmap
 }
 
-export async function updateRoadmap(id: string, updates: Partial<Roadmap>): Promise<Roadmap> {
+export async function updateRoadmap(id: string, updates: Partial<Roadmap>, old_value?: Partial<Roadmap>): Promise<Roadmap> {
   const roadmap = await _updateRoadmap(id, updates)
-  emit("roadmap.updated", roadmap)
+  emit("roadmap.updated", roadmap, { old_value })
   return roadmap
 }
 
 export async function deleteRoadmap(id: string): Promise<void> {
   await _deleteRoadmap(id)
+}
+
+export async function restoreRoadmap(id: string): Promise<void> {
+  await _restoreRoadmap(id)
 }
 
 // ============================================================
@@ -147,14 +173,18 @@ export async function addMember(params: {
   return result
 }
 
-export async function updateMemberRole(userId: string, newRole: string): Promise<void> {
+export async function updateMemberRole(userId: string, newRole: string, oldRole?: string): Promise<void> {
   await _updateMemberRole(userId, newRole)
-  emit("team.member_role_changed", { id: userId, role: newRole } as User)
+  emit("team.member_role_changed", { id: userId, role: newRole } as User, { old_value: oldRole ? { role: oldRole } : undefined })
 }
 
 export async function removeMember(userId: string): Promise<void> {
   await _removeMember(userId)
   emit("team.member_removed", { id: userId })
+}
+
+export async function restoreTeamMember(userId: string): Promise<void> {
+  await _restoreTeamMember(userId)
 }
 
 // ============================================================

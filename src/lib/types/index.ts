@@ -55,6 +55,8 @@ export interface User {
   avatar_url: string | null
   phone: string
   created_at: string
+  deleted_at?: string | null
+  deleted_by?: string | null
 }
 
 export interface Organization {
@@ -84,6 +86,8 @@ export interface Project {
   created_by: string
   created_at: string
   updated_at: string
+  deleted_at?: string | null
+  deleted_by?: string | null
 }
 
 export interface SitePhoto {
@@ -98,6 +102,8 @@ export interface SitePhoto {
   gps_lng: number
   uploaded_by: string
   created_at: string
+  deleted_at?: string | null
+  deleted_by?: string | null
 }
 
 export interface Material {
@@ -116,6 +122,8 @@ export interface Material {
   reorder_level: number
   created_at: string
   updated_at: string
+  deleted_at?: string | null
+  deleted_by?: string | null
 }
 
 export interface Expense {
@@ -130,6 +138,8 @@ export interface Expense {
   bill_url: string | null
   created_by: string
   created_at: string
+  deleted_at?: string | null
+  deleted_by?: string | null
 }
 
 export interface BudgetAlert {
@@ -260,6 +270,8 @@ export interface Roadmap {
   created_by: string
   created_at: string
   updated_at: string
+  deleted_at?: string | null
+  deleted_by?: string | null
 }
 
 export type ActivityAction = "create" | "update" | "delete"
@@ -274,5 +286,9 @@ export interface ActivityLog {
   entity_id: string
   entity_name: string
   details: Record<string, any> | null
+  old_value: Record<string, any> | null
+  new_value: Record<string, any> | null
+  ip_address: string | null
+  user_agent: string | null
   created_at: string
 }

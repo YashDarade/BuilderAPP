@@ -613,6 +613,10 @@ export async function logActivity(params: {
   entity_id: string
   entity_name: string
   details?: Record<string, any>
+  old_value?: Record<string, any> | null
+  new_value?: Record<string, any> | null
+  ip_address?: string | null
+  user_agent?: string | null
 }) {
   const supabase = getSupabase()
   const orgId = getCurrentOrgId()
@@ -627,6 +631,10 @@ export async function logActivity(params: {
     p_entity_id: params.entity_id,
     p_entity_name: params.entity_name,
     p_details: params.details || null,
+    p_old_value: params.old_value || null,
+    p_new_value: params.new_value || null,
+    p_ip_address: params.ip_address || null,
+    p_user_agent: params.user_agent || (typeof navigator !== "undefined" ? navigator.userAgent : null),
   })
 }
 
@@ -682,4 +690,114 @@ export async function removeMember(userId: string) {
   const supabase = getSupabase()
   const { error } = await supabase.rpc("delete_user", { p_user_id: userId })
   if (error) throw error
+}
+
+// ============================================================
+// SOFT DELETE RESTORE FUNCTIONS
+// ============================================================
+
+export async function restoreProject(id: string) {
+  const supabase = getSupabase()
+  const { error } = await supabase.rpc("restore_project", { p_id: id })
+  if (error) throw error
+}
+
+export async function restoreExpense(id: string) {
+  const supabase = getSupabase()
+  const { error } = await supabase.rpc("restore_expense", { p_id: id })
+  if (error) throw error
+}
+
+export async function restoreMaterial(id: string) {
+  const supabase = getSupabase()
+  const { error } = await supabase.rpc("restore_material", { p_id: id })
+  if (error) throw error
+}
+
+export async function restorePhoto(id: string) {
+  const supabase = getSupabase()
+  const { error } = await supabase.rpc("restore_photo", { p_id: id })
+  if (error) throw error
+}
+
+export async function restoreRoadmap(id: string) {
+  const supabase = getSupabase()
+  const { error } = await supabase.rpc("restore_roadmap", { p_id: id })
+  if (error) throw error
+}
+
+export async function restoreTeamMember(userId: string) {
+  const supabase = getSupabase()
+  const { error } = await supabase.rpc("restore_user", { p_user_id: userId })
+  if (error) throw error
+}
+
+// ============================================================
+// DELETED ITEMS HOOKS (owner-only view)
+// ============================================================
+
+export function useDeletedProjects() {
+  return useSupabaseQuery<Project[]>(async () => {
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const supabase = getSupabase()
+    const { data, error } = await supabase.rpc("get_deleted_projects", { p_org_id: orgId })
+    if (error) throw error
+    return (data || []) as Project[]
+  })
+}
+
+export function useDeletedExpenses() {
+  return useSupabaseQuery<Expense[]>(async () => {
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const supabase = getSupabase()
+    const { data, error } = await supabase.rpc("get_deleted_expenses", { p_org_id: orgId })
+    if (error) throw error
+    return (data || []) as Expense[]
+  })
+}
+
+export function useDeletedMaterials() {
+  return useSupabaseQuery<Material[]>(async () => {
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const supabase = getSupabase()
+    const { data, error } = await supabase.rpc("get_deleted_materials", { p_org_id: orgId })
+    if (error) throw error
+    return (data || []) as Material[]
+  })
+}
+
+export function useDeletedPhotos() {
+  return useSupabaseQuery<SitePhoto[]>(async () => {
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const supabase = getSupabase()
+    const { data, error } = await supabase.rpc("get_deleted_photos", { p_org_id: orgId })
+    if (error) throw error
+    return (data || []) as SitePhoto[]
+  })
+}
+
+export function useDeletedRoadmaps() {
+  return useSupabaseQuery<Roadmap[]>(async () => {
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const supabase = getSupabase()
+    const { data, error } = await supabase.rpc("get_deleted_roadmaps", { p_org_id: orgId })
+    if (error) throw error
+    return (data || []) as Roadmap[]
+  })
+}
+
+export function useDeletedTeamMembers() {
+  return useSupabaseQuery<User[]>(async () => {
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const supabase = getSupabase()
+    const { data, error } = await supabase.rpc("get_deleted_users", { p_org_id: orgId })
+    if (error) throw error
+    return (data || []) as User[]
+  })
 }

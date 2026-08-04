@@ -9,15 +9,16 @@ const listeners = new Map<string, Set<Handler>>()
  */
 export function emit<K extends AppEvent["type"]>(
   ...args: Extract<AppEvent, { type: K }> extends { data: infer D }
-    ? [type: K, data: D]
+    ? [type: K, data: D, extra?: Record<string, any>]
     : [type: K]
 ): void {
-  const [type, data] = args as [K, any]
+  const [type, data, extra] = args as [K, any, Record<string, any> | undefined]
   const handlers = listeners.get(type)
   if (!handlers) return
+  const eventObj = { type, data, ...extra }
   handlers.forEach((handler) => {
     try {
-      handler(data)
+      handler(eventObj)
     } catch (err) {
       console.error(`[EventBus] Error in handler for "${type}":`, err)
     }

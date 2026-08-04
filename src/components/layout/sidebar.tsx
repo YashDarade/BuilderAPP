@@ -20,6 +20,7 @@ import {
   Map,
   History,
   Users,
+  Trash2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/lib/store"
@@ -50,6 +51,7 @@ const allNavigation = [
   { name: "AI Tools", href: "/ai-tools", icon: Brain, roles: ["owner"] },
   { name: "Team", href: "/team", icon: Users, roles: ["owner"] },
   { name: "Activity Log", href: "/activity", icon: History, roles: ["owner", "site_engineer"] },
+  { name: "Deleted Items", href: "/deleted-items", icon: Trash2, roles: ["owner"] },
   { name: "Notifications", href: "/notifications", icon: Bell, roles: ["owner", "site_engineer", "client"] },
   { name: "Profile", href: "/profile", icon: User, roles: ["owner", "site_engineer", "client"] },
 ]

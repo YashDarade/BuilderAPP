@@ -40,7 +40,7 @@ test.describe("Projects CRUD", () => {
     await page.getByRole("button", { name: /create project/i }).click()
     // Wait for either success toast or error toast (dialog closes on success)
     await expect(
-      page.getByText(/created successfully|Failed to create/i)
+      page.getByText(/project created|failed to create/i)
     ).toBeVisible({ timeout: 15000 })
   })
 
