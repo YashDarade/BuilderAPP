@@ -17,9 +17,11 @@ import {
 } from "@/lib/hooks/use-data"
 import { useStore } from "@/lib/store"
 import { isAdmin } from "@/lib/supabase/auth"
+import { useRealtimeSync } from "@/lib/hooks/use-realtime"
 import { ErrorState } from "@/components/error-state"
 import { cn } from "@/lib/utils"
 import { CHART_TOOLTIP_STYLE, CHART_LEGEND_STYLE } from "@/lib/chart-theme"
+import { RefreshButton } from "@/components/refresh-button"
 import {
   FolderKanban,
   Wallet,
@@ -101,18 +103,28 @@ export default function DashboardPage() {
   const { stats, isLoading: statsLoading, error: statsError } = useDashboardStats()
   const { data: rawProjects, error: projectsError, refetch: refetchProjects } = useProjects()
   const projects = rawProjects ?? []
-  const { data: rawExpenses } = useExpenses()
+  const { data: rawExpenses, refetch: refetchExpenses } = useExpenses()
   const expenses = rawExpenses ?? []
-  const { data: rawMaterials } = useMaterials()
+  const { data: rawMaterials, refetch: refetchMaterials } = useMaterials()
   const materials = rawMaterials ?? []
-  const { data: rawReports } = useReports()
+  const { data: rawReports, refetch: refetchReports } = useReports()
   const reports = rawReports ?? []
-  const { data: rawMonthlyExpenses } = useMonthlyExpenses()
+  const { data: rawMonthlyExpenses, refetch: refetchMonthly } = useMonthlyExpenses()
   const monthlyExpenses = rawMonthlyExpenses ?? []
-  const { data: rawBudgetConsumption } = useBudgetConsumption()
+  const { data: rawBudgetConsumption, refetch: refetchBudget } = useBudgetConsumption()
   const budgetConsumption = rawBudgetConsumption ?? []
-  const { data: rawProjectProgress } = useProjectProgress()
+  const { data: rawProjectProgress, refetch: refetchProgress } = useProjectProgress()
   const projectProgress = rawProjectProgress ?? []
+
+  useRealtimeSync(["projects", "expenses", "materials", "progress_reports", "site_photos", "roadmaps"], () => {
+    refetchProjects()
+    refetchExpenses()
+    refetchMaterials()
+    refetchReports()
+    refetchMonthly()
+    refetchBudget()
+    refetchProgress()
+  })
 
   const monthlyBarData = Object.values(
     monthlyExpenses.reduce(
@@ -185,6 +197,12 @@ export default function DashboardPage() {
             <p className="text-muted-foreground">Your projects and daily operations</p>
           </div>
           <div className="flex gap-2">
+            <RefreshButton onRefresh={() => {
+              refetchProjects()
+              refetchExpenses()
+              refetchMaterials()
+              refetchReports()
+            }} />
             <Link href="/photos">
               <Button variant="outline" size="sm">
                 <Camera className="mr-2 h-4 w-4" />
@@ -328,11 +346,17 @@ export default function DashboardPage() {
   if (role === "client") {
     return (
       <div className="space-y-6">
-        <div className="rounded-xl bg-gradient-to-r from-orange-500/10 to-blue-500/10 border p-6">
-          <h1 className="text-3xl font-bold tracking-tight">Welcome, {currentUser?.full_name?.split(" ")[0] || "Client"}</h1>
-          <p className="text-muted-foreground mt-1">
-            You have {projects.length} active projects. Here&apos;s your overview.
-          </p>
+        <div className="rounded-xl bg-gradient-to-r from-orange-500/10 to-blue-500/10 border p-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Welcome, {currentUser?.full_name?.split(" ")[0] || "Client"}</h1>
+            <p className="text-muted-foreground mt-1">
+              You have {projects.length} active projects. Here&apos;s your overview.
+            </p>
+          </div>
+          <RefreshButton onRefresh={() => {
+            refetchProjects()
+            refetchReports()
+          }} />
         </div>
 
         {/* Project Health Cards */}
@@ -469,11 +493,22 @@ export default function DashboardPage() {
   // Admin Dashboard (original with all charts)
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Overview of your construction projects and financials
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Overview of your construction projects and financials
+          </p>
+        </div>
+        <RefreshButton onRefresh={() => {
+          refetchProjects()
+          refetchExpenses()
+          refetchMaterials()
+          refetchReports()
+          refetchMonthly()
+          refetchBudget()
+          refetchProgress()
+        }} />
       </div>
 
       {statsLoading ? (

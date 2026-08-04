@@ -263,7 +263,7 @@ export interface Roadmap {
 }
 
 export type ActivityAction = "create" | "update" | "delete"
-export type EntityType = "project" | "material" | "expense" | "photo" | "report" | "roadmap" | "bill_scan"
+export type EntityType = "project" | "material" | "expense" | "photo" | "report" | "roadmap" | "bill_scan" | "team"
 
 export interface ActivityLog {
   id: string

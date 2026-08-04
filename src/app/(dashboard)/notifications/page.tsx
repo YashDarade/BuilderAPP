@@ -22,9 +22,11 @@ import {
 import { formatDistanceToNow } from "date-fns"
 import type { Notification, NotificationType } from "@/lib/types"
 import { useNotifications, markNotificationRead, markAllNotificationsRead } from "@/lib/hooks/use-data"
+import { useNotificationsRealtime } from "@/lib/hooks/use-realtime"
 import { ErrorState } from "@/components/error-state"
 import { ListSkeleton } from "@/components/page-skeletons"
 import { EmptyState } from "@/components/empty-state"
+import { RefreshButton } from "@/components/refresh-button"
 import { toast } from "sonner"
 
 function getNotificationIcon(type: NotificationType) {
@@ -60,6 +62,8 @@ function getNotificationBadge(type: NotificationType) {
 export default function NotificationsPage() {
   const { data: rawNotifications, isLoading, error, refetch } = useNotifications()
   const notifications = rawNotifications ?? []
+
+  useNotificationsRealtime(refetch)
   const [filter, setFilter] = useState<"all" | "unread" | "read">("all")
   const [updating, setUpdating] = useState<string | null>(null)
 
@@ -140,7 +144,7 @@ export default function NotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Notifications</h1>
           <p className="text-muted-foreground">
@@ -148,6 +152,7 @@ export default function NotificationsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <RefreshButton onRefresh={refetch} />
           {unreadCount > 0 && (
             <Button variant="outline" size="sm" onClick={handleMarkAllAsRead} disabled={updating === "all"}>
               <CheckCircle className="mr-1.5 h-3.5 w-3.5" />

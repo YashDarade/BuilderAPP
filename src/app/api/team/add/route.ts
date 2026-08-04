@@ -1,12 +1,27 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { teamAddLimiter, getClientIp, rateLimitResponse } from "@/lib/rate-limit"
+import { verifyTurnstile } from "@/lib/turnstile"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, full_name, role, org_id } = await request.json()
+    // Rate limit: 10 requests per minute per IP
+    if (teamAddLimiter) {
+      const ip = getClientIp(request)
+      const { success, limit, remaining, reset } = await teamAddLimiter.limit(ip)
+      const blocked = rateLimitResponse(remaining, reset)
+      if (!success && blocked) return blocked
+    }
+
+    const { email, full_name, role, org_id, captchaToken } = await request.json()
+
+    // Verify CAPTCHA
+    if (!await verifyTurnstile(captchaToken || "", getClientIp(request))) {
+      return NextResponse.json({ error: "Invalid CAPTCHA" }, { status: 400 })
+    }
 
     if (!email || !full_name || !role || !org_id) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })

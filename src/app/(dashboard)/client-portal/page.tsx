@@ -32,6 +32,7 @@ import { RoleGuard } from "@/components/role-guard"
 import { ErrorState } from "@/components/error-state"
 import { CardGridSkeleton } from "@/components/page-skeletons"
 import { EmptyState } from "@/components/empty-state"
+import { RefreshButton } from "@/components/refresh-button"
 import type { Project, SitePhoto, ProgressReport } from "@/lib/types"
 
 const statusColors: Record<string, string> = {
@@ -547,11 +548,18 @@ export default function ClientPortalPage() {
   return (
     <RoleGuard allowedRoles={["owner", "client"]}>
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">My Projects</h1>
-        <p className="text-muted-foreground">
-          View and track the progress of your construction projects
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">My Projects</h1>
+          <p className="text-muted-foreground">
+            View and track the progress of your construction projects
+          </p>
+        </div>
+        <RefreshButton onRefresh={() => {
+          refetchProjects()
+          refetchPhotos()
+          refetchReports()
+        }} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

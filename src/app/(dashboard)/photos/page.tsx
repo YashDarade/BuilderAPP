@@ -23,11 +23,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { usePhotos, useProjects, uploadPhoto, deletePhoto, logActivity } from "@/lib/hooks/use-data"
+import { usePhotos, useProjects } from "@/lib/hooks/use-data"
+import { uploadPhoto, deletePhoto } from "@/lib/hooks/use-mutation"
 import { useStore } from "@/lib/store"
 import { isAdmin } from "@/lib/supabase/auth"
+import { useRealtimeSync } from "@/lib/hooks/use-realtime"
 import { ErrorState } from "@/components/error-state"
 import { EmptyState } from "@/components/empty-state"
+import { RefreshButton } from "@/components/refresh-button"
 import type { PhotoCategory } from "@/lib/types"
 import {
   Upload,
@@ -85,6 +88,11 @@ export default function PhotosPage() {
   const photosData = rawPhotosData ?? []
   const { data: rawProjects, isLoading: projectsLoading, error: projectsError, refetch: refetchProjects } = useProjects()
   const projects = rawProjects ?? []
+
+  useRealtimeSync(["site_photos", "projects"], () => {
+    refetchPhotos()
+    refetchProjects()
+  })
 
   const [viewMode, setViewMode] = useState<"grid" | "timeline">(role === "client" ? "timeline" : "grid")
   const [search, setSearch] = useState("")
@@ -208,12 +216,11 @@ export default function PhotosPage() {
     }
     setUploading(true)
     try {
-      const photo = await uploadPhoto(selectedFile, newPhoto.project_id, newPhoto.category, newPhoto.notes)
-      logActivity({ action: "create", entity_type: "photo", entity_id: photo.id, entity_name: newPhoto.category })
-      toast.success("Photo uploaded successfully")
+      await uploadPhoto(selectedFile, newPhoto.project_id, newPhoto.category, newPhoto.notes)
       clearFileSelection()
       setNewPhoto({ notes: "", category: "Foundation", project_id: "" })
       setUploadDialogOpen(false)
+      refetchPhotos()
     } catch (err: any) {
       toast.error(err.message || "Failed to upload photo")
     } finally {
@@ -226,8 +233,7 @@ export default function PhotosPage() {
     setDeletingId(photoId)
     try {
       await deletePhoto(photoId)
-      logActivity({ action: "delete", entity_type: "photo", entity_id: photoId, entity_name: "Site Photo" })
-      toast.success("Photo deleted")
+      refetchPhotos()
     } catch (err: any) {
       toast.error(err.message || "Failed to delete photo")
     } finally {
@@ -281,12 +287,15 @@ export default function PhotosPage() {
             View and manage construction site photographs
           </p>
         </div>
-        {canUpload && (
-          <Button onClick={() => setUploadDialogOpen(true)}>
-            <Upload className="h-4 w-4" />
-            Upload Photo
-          </Button>
-        )}
+        <div className="flex gap-2">
+          <RefreshButton onRefresh={refetchPhotos} />
+          {canUpload && (
+            <Button onClick={() => setUploadDialogOpen(true)}>
+              <Upload className="h-4 w-4" />
+              Upload Photo
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

@@ -25,10 +25,13 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { useProjects, createProject, logActivity } from "@/lib/hooks/use-data"
+import { useProjects } from "@/lib/hooks/use-data"
+import { createProject } from "@/lib/hooks/use-mutation"
 import { useStore } from "@/lib/store"
 import { projectSchema } from "@/lib/validation-schemas"
+import { useRealtimeSync } from "@/lib/hooks/use-realtime"
 import { ErrorState } from "@/components/error-state"
+import { RefreshButton } from "@/components/refresh-button"
 import { ProjectsSkeleton } from "@/components/page-skeletons"
 import { EmptyState } from "@/components/empty-state"
 import { toast } from "sonner"
@@ -90,6 +93,8 @@ export default function ProjectsPage() {
   const { currentUser } = useStore()
   const { data: rawProjects, isLoading, error, refetch } = useProjects()
   const projects = rawProjects ?? []
+
+  useRealtimeSync(["projects"], refetch)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("name")
@@ -166,7 +171,7 @@ export default function ProjectsPage() {
     setFormErrors({})
     setSaving(true)
     try {
-      const project = await createProject({
+      await createProject({
         name: result.data.name,
         client_name: result.data.client_name,
         client_id: "",
@@ -181,9 +186,8 @@ export default function ProjectsPage() {
         progress: 0,
         created_by: currentUser?.id || "",
       })
-      logActivity({ action: "create", entity_type: "project", entity_id: project.id, entity_name: project.name })
-      toast.success("Project created successfully")
       setDialogOpen(false)
+      refetch()
       setNewProject({
         name: "",
         client_name: "",
@@ -225,15 +229,18 @@ export default function ProjectsPage() {
             Manage and track all your construction projects
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger
-            render={
-              <Button>
-                <Plus className="h-4 w-4" />
-                Add Project
-              </Button>
-            }
-          />
+        <RefreshButton onRefresh={refetch} />
+      </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogTrigger
+          render={
+            <Button>
+              <Plus className="h-4 w-4" />
+              Add Project
+            </Button>
+          }
+        />
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Add New Project</DialogTitle>
@@ -358,7 +365,6 @@ export default function ProjectsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">

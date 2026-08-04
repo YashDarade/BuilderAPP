@@ -22,11 +22,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useStore } from "@/lib/store"
-import { useRoadmaps, useProjects, createRoadmap, updateRoadmap, logActivity } from "@/lib/hooks/use-data"
+import { useRoadmaps, useProjects } from "@/lib/hooks/use-data"
+import { createRoadmap, updateRoadmap } from "@/lib/hooks/use-mutation"
 import { isAdmin } from "@/lib/supabase/auth"
+import { useRealtimeSync } from "@/lib/hooks/use-realtime"
 import { roadmapSchema, roadmapPhaseSchema } from "@/lib/validation-schemas"
 import { ErrorState } from "@/components/error-state"
 import { EmptyState } from "@/components/empty-state"
+import { RefreshButton } from "@/components/refresh-button"
 import { ProjectSelector } from "@/components/project-selector"
 import {
   Plus,
@@ -64,8 +67,13 @@ export default function RoadmapPage() {
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
   const { data: rawRoadmaps, isLoading, error: roadmapsError, refetch: refetchRoadmaps } = useRoadmaps(selectedProject || undefined)
   const roadmaps = rawRoadmaps ?? []
-  const { data: rawProjects } = useProjects()
+  const { data: rawProjects, refetch: refetchProjects } = useProjects()
   const projects = rawProjects ?? []
+
+  useRealtimeSync(["roadmaps", "projects"], () => {
+    refetchRoadmaps()
+    refetchProjects()
+  })
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [editPhase, setEditPhase] = useState<{ roadmapId: string; phase: RoadmapPhase } | null>(null)
@@ -85,16 +93,15 @@ export default function RoadmapPage() {
     }
     setSaving(true)
     try {
-      const rm = await createRoadmap({
+      await createRoadmap({
         project_id: result.data.project_id,
         title: result.data.title,
         description: result.data.description || "",
         phases: [],
         created_by: currentUser?.id || "",
       })
-      logActivity({ action: "create", entity_type: "roadmap", entity_id: rm.id, entity_name: rm.title })
-      toast.success("Roadmap created")
       setCreateOpen(false)
+      refetchRoadmaps()
     } catch (err: any) {
       toast.error(err.message || "Failed to create roadmap")
     } finally {
@@ -109,9 +116,8 @@ export default function RoadmapPage() {
     setSaving(true)
     try {
       await updateRoadmap(roadmapId, { phases: newPhases })
-      logActivity({ action: "update", entity_type: "roadmap", entity_id: roadmapId, entity_name: `Updated phase: ${updatedPhase.name}` })
-      toast.success("Phase updated")
       setEditPhase(null)
+      refetchRoadmaps()
     } catch (err: any) {
       toast.error(err.message || "Failed to update phase")
     } finally {
@@ -135,8 +141,7 @@ export default function RoadmapPage() {
     setSaving(true)
     try {
       await updateRoadmap(roadmapId, { phases: newPhases })
-      logActivity({ action: "update", entity_type: "roadmap", entity_id: roadmapId, entity_name: `Added phase: ${newPhase.name}` })
-      toast.success("Phase added")
+      refetchRoadmaps()
     } catch (err: any) {
       toast.error(err.message || "Failed to add phase")
     } finally {
@@ -151,8 +156,7 @@ export default function RoadmapPage() {
     setSaving(true)
     try {
       await updateRoadmap(roadmapId, { phases: newPhases })
-      logActivity({ action: "update", entity_type: "roadmap", entity_id: roadmapId, entity_name: `Deleted phase from ${roadmap.title}` })
-      toast.success("Phase deleted")
+      refetchRoadmaps()
     } catch (err: any) {
       toast.error(err.message || "Failed to delete phase")
     } finally {
@@ -199,6 +203,7 @@ export default function RoadmapPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <RefreshButton onRefresh={refetchRoadmaps} />
           <ProjectSelector value={selectedProject} onChange={setSelectedProject} />
           {admin && (
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>

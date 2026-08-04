@@ -55,15 +55,17 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import type { Expense, ExpenseCategory } from "@/lib/types"
-import { useExpenses, useProjects, createExpense, updateExpense, deleteExpense } from "@/lib/hooks/use-data"
+import { useExpenses, useProjects } from "@/lib/hooks/use-data"
+import { createExpense, updateExpense, deleteExpense } from "@/lib/hooks/use-mutation"
 import { useStore } from "@/lib/store"
 import { isAdmin } from "@/lib/supabase/auth"
+import { useRealtimeSync } from "@/lib/hooks/use-realtime"
 import { expenseSchema } from "@/lib/validation-schemas"
 import { ErrorState } from "@/components/error-state"
 import { TablePageSkeleton } from "@/components/page-skeletons"
-import { logActivity } from "@/lib/hooks/use-data"
 import { toast } from "sonner"
 import { CHART_TOOLTIP_STYLE } from "@/lib/chart-theme"
+import { RefreshButton } from "@/components/refresh-button"
 
 const EXPENSE_CATEGORIES: ExpenseCategory[] = [
   "Labor",
@@ -117,6 +119,11 @@ export default function ExpensesPage() {
   const expenses = rawExpenses ?? []
   const { data: rawProjects, isLoading: projectsLoading, error: projectsError, refetch: refetchProjects } = useProjects()
   const projects = rawProjects ?? []
+
+  useRealtimeSync(["expenses", "projects"], () => {
+    refetchExpenses()
+    refetchProjects()
+  })
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [projectFilter, setProjectFilter] = useState("all")
@@ -233,10 +240,8 @@ export default function ExpensesPage() {
 
   async function handleDelete(id: string) {
     try {
-      const exp = expenses.find((e) => e.id === id)
       await deleteExpense(id)
-      logActivity({ action: "delete", entity_type: "expense", entity_id: id, entity_name: exp?.description || "Expense" })
-      toast.success("Expense deleted")
+      refetchExpenses()
     } catch (e: any) {
       toast.error("Failed to delete: " + e.message)
     }
@@ -265,10 +270,8 @@ export default function ExpensesPage() {
           vendor: result.data.vendor || "",
           date: result.data.date,
         })
-        logActivity({ action: "update", entity_type: "expense", entity_id: editingId, entity_name: result.data.description })
-        toast.success("Expense updated")
       } else {
-        const exp = await createExpense({
+        await createExpense({
           description: result.data.description,
           amount: result.data.amount,
           category: result.data.category as ExpenseCategory,
@@ -278,10 +281,9 @@ export default function ExpensesPage() {
           bill_url: null,
           created_by: currentUser?.id || "",
         })
-        logActivity({ action: "create", entity_type: "expense", entity_id: exp.id, entity_name: exp.description })
-        toast.success("Expense added")
       }
       setDialogOpen(false)
+      refetchExpenses()
     } catch (e: any) {
       toast.error("Failed to save: " + e.message)
     }
@@ -312,12 +314,15 @@ export default function ExpensesPage() {
             Track and manage project expenses
           </p>
         </div>
-        {canAdd && (
-        <Button onClick={handleAdd}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          Add Expense
-        </Button>
-        )}
+        <div className="flex gap-2">
+          <RefreshButton onRefresh={refetchExpenses} />
+          {canAdd && (
+          <Button onClick={handleAdd}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add Expense
+          </Button>
+          )}
+        </div>
       </div>
 
       {/* Summary Cards */}

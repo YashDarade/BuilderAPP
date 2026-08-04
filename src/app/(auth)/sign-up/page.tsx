@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Captcha } from "@/components/captcha"
 import {
   Card,
   CardContent,
@@ -58,6 +59,8 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [lastAttempt, setLastAttempt] = useState(0)
+  const [captchaToken, setCaptchaToken] = useState("")
 
   const {
     register,
@@ -80,6 +83,14 @@ export default function SignUpPage() {
   const agreeTerms = watch("agreeTerms")
 
   const onSubmit = async (data: SignUpFormValues) => {
+    // Client-side rate limit: 5 seconds between attempts
+    const now = Date.now()
+    if (now - lastAttempt < 5000) {
+      setError("Please wait a few seconds before trying again")
+      return
+    }
+    setLastAttempt(now)
+
     setIsLoading(true)
     setError(null)
 
@@ -284,6 +295,7 @@ export default function SignUpPage() {
               {errors.agreeTerms.message}
             </p>
           )}
+          <Captcha onVerify={setCaptchaToken} />
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
           <Button type="submit" className="w-full" disabled={isLoading}>

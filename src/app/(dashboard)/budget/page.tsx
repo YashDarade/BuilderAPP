@@ -27,7 +27,9 @@ import {
 import { useProjects, useBudgetConsumption, useBudgetAlerts } from "@/lib/hooks/use-data"
 import { ErrorState } from "@/components/error-state"
 import { RoleGuard } from "@/components/role-guard"
+import { useRealtimeSync } from "@/lib/hooks/use-realtime"
 import { CHART_TOOLTIP_STYLE, CHART_LEGEND_STYLE } from "@/lib/chart-theme"
+import { RefreshButton } from "@/components/refresh-button"
 
 const CHART_COLORS = ["#f97316", "#3b82f6", "#22c55e", "#ef4444", "#8b5cf6", "#eab308"]
 
@@ -72,7 +74,7 @@ function getAlertBadgeVariant(type: string): "destructive" | "secondary" | "outl
 export default function BudgetPage() {
   const { data: rawProjects, isLoading: projectsLoading, error: projectsError, refetch: refetchProjects } = useProjects()
   const projects = rawProjects ?? []
-  const { data: rawBudgetConsumption, isLoading: budgetLoading } = useBudgetConsumption()
+  const { data: rawBudgetConsumption, isLoading: budgetLoading, refetch: refetchBudget } = useBudgetConsumption()
   const budgetConsumption = useMemo(() => {
     const raw = rawBudgetConsumption ?? []
     const seen = new Set<string>()
@@ -82,8 +84,14 @@ export default function BudgetPage() {
       return true
     })
   }, [rawBudgetConsumption])
-  const { data: rawBudgetAlerts, isLoading: alertsLoading } = useBudgetAlerts()
+  const { data: rawBudgetAlerts, isLoading: alertsLoading, refetch: refetchAlerts } = useBudgetAlerts()
   const budgetAlerts = rawBudgetAlerts ?? []
+
+  useRealtimeSync(["projects", "expenses", "budget_alerts"], () => {
+    refetchProjects()
+    refetchBudget()
+    refetchAlerts()
+  })
 
   const isLoading = projectsLoading || budgetLoading || alertsLoading
 
@@ -164,11 +172,14 @@ export default function BudgetPage() {
   return (
     <RoleGuard allowedRoles={["owner"]}>
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Budget</h1>
-        <p className="text-muted-foreground">
-          Monitor project budgets and spending across all projects
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Budget</h1>
+          <p className="text-muted-foreground">
+            Monitor project budgets and spending across all projects
+          </p>
+        </div>
+        <RefreshButton onRefresh={refetchProjects} />
       </div>
 
       {/* Overall Budget Summary */}

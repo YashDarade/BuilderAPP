@@ -260,8 +260,14 @@ export async function deleteMaterial(id: string) {
 export function usePhotos(projectId?: string) {
   return useSupabaseQuery<SitePhoto[]>(async () => {
     const supabase = getSupabase()
-    if (!projectId) return []
-    const { data, error } = await supabase.rpc("get_project_photos", { p_project_id: projectId })
+    if (projectId) {
+      const { data, error } = await supabase.rpc("get_project_photos", { p_project_id: projectId })
+      if (error) throw error
+      return (data || []) as SitePhoto[]
+    }
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const { data, error } = await supabase.rpc("get_all_photos", { p_org_id: orgId })
     if (error) throw error
     return (data || []) as SitePhoto[]
   }, [projectId], "site_photos")
@@ -320,8 +326,14 @@ export async function deletePhoto(id: string, storagePath?: string) {
 export function useReports(projectId?: string) {
   return useSupabaseQuery<ProgressReport[]>(async () => {
     const supabase = getSupabase()
-    if (!projectId) return []
-    const { data, error } = await supabase.rpc("get_project_progress", { p_project_id: projectId })
+    if (projectId) {
+      const { data, error } = await supabase.rpc("get_project_progress", { p_project_id: projectId })
+      if (error) throw error
+      return (data || []) as ProgressReport[]
+    }
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const { data, error } = await supabase.rpc("get_all_reports", { p_org_id: orgId })
     if (error) throw error
     return (data || []) as ProgressReport[]
   }, [projectId], "progress_reports")
@@ -637,6 +649,7 @@ export async function addMember(params: {
   full_name: string
   role: string
   org_id: string
+  captchaToken?: string
 }): Promise<{ data: User; tempPassword?: string; message: string }> {
   const supabase = getSupabase()
   const { data: { session } } = await supabase.auth.getSession()

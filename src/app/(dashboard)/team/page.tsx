@@ -1,9 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { useTeamMembers, addMember, updateMemberRole, removeMember } from "@/lib/hooks/use-data"
+import { useTeamMembers } from "@/lib/hooks/use-data"
+import { addMember, updateMemberRole, removeMember } from "@/lib/hooks/use-mutation"
 import { useStore } from "@/lib/store"
 import { RoleGuard } from "@/components/role-guard"
+import { useRealtimeSync } from "@/lib/hooks/use-realtime"
+import { Captcha } from "@/components/captcha"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,6 +15,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/empty-state"
 import { ErrorState } from "@/components/error-state"
+import { RefreshButton } from "@/components/refresh-button"
 import {
   Dialog,
   DialogContent,
@@ -56,11 +60,13 @@ export default function TeamPage() {
   const { currentUser } = useStore()
   const { data: members, isLoading, error, refetch } = useTeamMembers()
 
+  useRealtimeSync(["users"], refetch)
+
   const [showAdd, setShowAdd] = useState(false)
   const [showEditRole, setShowEditRole] = useState(false)
   const [showRemove, setShowRemove] = useState(false)
   const [selectedMember, setSelectedMember] = useState<any>(null)
-  const [addForm, setAddForm] = useState({ email: "", full_name: "", role: "site_engineer" })
+  const [addForm, setAddForm] = useState({ email: "", full_name: "", role: "site_engineer", captchaToken: "" })
   const [addLoading, setAddLoading] = useState(false)
   const [addResult, setAddResult] = useState<{ email: string; password: string } | null>(null)
   const [editRoleLoading, setEditRoleLoading] = useState(false)
@@ -76,13 +82,13 @@ export default function TeamPage() {
         full_name: addForm.full_name,
         role: addForm.role,
         org_id: currentUser.org_id,
+        captchaToken: addForm.captchaToken,
       })
       setAddResult({
         email: addForm.email,
         password: result.tempPassword || "Sign up with this email",
       })
-      setAddForm({ email: "", full_name: "", role: "site_engineer" })
-      toast.success("Team member added!")
+      setAddForm({ email: "", full_name: "", role: "site_engineer", captchaToken: "" })
       refetch()
     } catch (e: any) {
       toast.error(e.message || "Failed to add member")
@@ -97,7 +103,6 @@ export default function TeamPage() {
     setEditRoleLoading(true)
     try {
       await updateMemberRole(selectedMember.id, newRole)
-      toast.success(`Role updated to ${roleLabels[newRole]}`)
       setShowEditRole(false)
       setSelectedMember(null)
       refetch()
@@ -114,7 +119,6 @@ export default function TeamPage() {
     setRemoveLoading(true)
     try {
       await removeMember(selectedMember.id)
-      toast.success("Member removed")
       setShowRemove(false)
       setSelectedMember(null)
       refetch()
@@ -135,10 +139,13 @@ export default function TeamPage() {
               Manage your organization&apos;s team
             </p>
           </div>
-          <Button onClick={() => { setAddResult(null); setShowAdd(true) }}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Add Member
-          </Button>
+          <div className="flex gap-2">
+            <RefreshButton onRefresh={refetch} />
+            <Button onClick={() => { setAddResult(null); setShowAdd(true) }}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Add Member
+            </Button>
+          </div>
         </div>
 
         {error && <ErrorState message={error} onRetry={refetch} />}
@@ -274,6 +281,7 @@ export default function TeamPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <Captcha onVerify={(token) => setAddForm({ ...addForm, captchaToken: token })} />
               <DialogFooter>
                 <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
                 <Button onClick={handleAdd} disabled={addLoading || !addForm.email || !addForm.full_name}>

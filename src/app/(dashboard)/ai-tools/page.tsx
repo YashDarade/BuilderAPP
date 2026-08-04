@@ -51,6 +51,7 @@ import { useProjects, useBillScans, uploadBillScan, updateBillScan, createExpens
 import { useStore } from "@/lib/store"
 import { RoleGuard } from "@/components/role-guard"
 import { toast } from "sonner"
+import { RefreshButton } from "@/components/refresh-button"
 
 const MOCK_DETECTIONS: MaterialDetection[] = [
   {
@@ -335,6 +336,7 @@ export default function AIToolsPage() {
             AI-powered tools for construction site management
           </p>
         </div>
+        <RefreshButton onRefresh={refetchBillScans} />
       </div>
 
       {/* Bill Scanner Section */}

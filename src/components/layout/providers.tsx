@@ -4,6 +4,9 @@ import { useEffect } from "react"
 import { ThemeProvider } from "next-themes"
 import { Toaster } from "sonner"
 import { OfflineBanner } from "@/components/offline-banner"
+import { initEventHandlers } from "@/lib/events"
+
+initEventHandlers()
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {

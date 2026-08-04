@@ -30,6 +30,7 @@ import {
   FileText,
   Map,
   ScanLine,
+  Users,
   RefreshCw,
   Clock,
 } from "lucide-react"
@@ -61,6 +62,7 @@ const entityIcons: Record<EntityType, typeof FolderKanban> = {
   report: FileText,
   roadmap: Map,
   bill_scan: ScanLine,
+  team: Users,
 }
 
 const entityLabels: Record<EntityType, string> = {
@@ -71,6 +73,7 @@ const entityLabels: Record<EntityType, string> = {
   report: "Report",
   roadmap: "Roadmap",
   bill_scan: "Bill Scan",
+  team: "Team",
 }
 
 export default function ActivityPage() {

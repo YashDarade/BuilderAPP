@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Captcha } from "@/components/captcha"
 import {
   Card,
   CardContent,
@@ -35,6 +36,8 @@ export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lastAttempt, setLastAttempt] = useState(0)
+  const [captchaToken, setCaptchaToken] = useState("")
 
   const {
     register,
@@ -54,6 +57,14 @@ export default function SignInPage() {
   const rememberMe = watch("rememberMe")
 
   const onSubmit = async (data: SignInFormValues) => {
+    // Client-side rate limit: 3 seconds between attempts
+    const now = Date.now()
+    if (now - lastAttempt < 3000) {
+      setError("Please wait a few seconds before trying again")
+      return
+    }
+    setLastAttempt(now)
+
     setIsLoading(true)
     setError(null)
 
@@ -172,6 +183,7 @@ export default function SignInPage() {
               Remember me
             </Label>
           </div>
+          <Captcha onVerify={setCaptchaToken} />
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
           <Button type="submit" className="w-full" disabled={isLoading}>

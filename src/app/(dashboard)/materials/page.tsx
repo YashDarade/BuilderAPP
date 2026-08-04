@@ -46,15 +46,17 @@ import {
   Search,
 } from "lucide-react"
 import type { Material } from "@/lib/types"
-import { useMaterials, useProjects, createMaterial, updateMaterial, deleteMaterial } from "@/lib/hooks/use-data"
+import { useMaterials, useProjects } from "@/lib/hooks/use-data"
+import { createMaterial, updateMaterial, deleteMaterial } from "@/lib/hooks/use-mutation"
 import { useStore } from "@/lib/store"
 import { isAdmin } from "@/lib/supabase/auth"
+import { useRealtimeSync } from "@/lib/hooks/use-realtime"
 import { materialSchema } from "@/lib/validation-schemas"
 import { ErrorState } from "@/components/error-state"
 import { TablePageSkeleton } from "@/components/page-skeletons"
 import { RoleGuard } from "@/components/role-guard"
-import { logActivity } from "@/lib/hooks/use-data"
 import { toast } from "sonner"
+import { RefreshButton } from "@/components/refresh-button"
 
 function formatCurrencyINR(amount: number): string {
   if (amount >= 10000000) {
@@ -109,6 +111,11 @@ export default function MaterialsPage() {
   const materials = rawMaterials ?? []
   const { data: rawProjects, isLoading: projectsLoading, error: projectsError, refetch: refetchProjects } = useProjects()
   const projects = rawProjects ?? []
+
+  useRealtimeSync(["materials", "projects"], () => {
+    refetchMaterials()
+    refetchProjects()
+  })
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [projectFilter, setProjectFilter] = useState("all")
@@ -178,10 +185,8 @@ export default function MaterialsPage() {
 
   async function handleDelete(id: string) {
     try {
-      const mat = materials.find((m) => m.id === id)
       await deleteMaterial(id)
-      logActivity({ action: "delete", entity_type: "material", entity_id: id, entity_name: mat?.name || "Material" })
-      toast.success("Material deleted")
+      refetchMaterials()
     } catch (e: any) {
       toast.error("Failed to delete: " + e.message)
     }
@@ -213,10 +218,8 @@ export default function MaterialsPage() {
           vendor: result.data.vendor || "",
           reorder_level: result.data.reorder_level,
         })
-        logActivity({ action: "update", entity_type: "material", entity_id: editingId, entity_name: result.data.name })
-        toast.success("Material updated")
       } else {
-        const mat = await createMaterial({
+        await createMaterial({
           name: result.data.name,
           category: result.data.category,
           project_id: result.data.project_id,
@@ -227,10 +230,9 @@ export default function MaterialsPage() {
           vendor: result.data.vendor || "",
           reorder_level: result.data.reorder_level,
         })
-        logActivity({ action: "create", entity_type: "material", entity_id: mat.id, entity_name: mat.name })
-        toast.success("Material added")
       }
       setDialogOpen(false)
+      refetchMaterials()
     } catch (e: any) {
       toast.error("Failed to save: " + e.message)
     }
@@ -262,12 +264,15 @@ export default function MaterialsPage() {
             Manage inventory across all projects
           </p>
         </div>
-        {canEdit && (
-        <Button onClick={handleAdd}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          Add Material
-        </Button>
-        )}
+        <div className="flex gap-2">
+          <RefreshButton onRefresh={refetchMaterials} />
+          {canEdit && (
+          <Button onClick={handleAdd}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add Material
+          </Button>
+          )}
+        </div>
       </div>
 
       {/* Summary Cards */}

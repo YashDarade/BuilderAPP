@@ -8,7 +8,9 @@ import { Progress, ProgressLabel, ProgressValue } from "@/components/ui/progress
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useProject, useExpenses, useMaterials, usePhotos, useReports } from "@/lib/hooks/use-data"
+import { useRealtimeSync } from "@/lib/hooks/use-realtime"
 import { ErrorState } from "@/components/error-state"
+import { RefreshButton } from "@/components/refresh-button"
 import { PageHeaderSkeleton, StatCardsSkeleton, TableSkeleton } from "@/components/page-skeletons"
 import type { ProjectStatus } from "@/lib/types"
 import {
@@ -73,14 +75,22 @@ export default function ProjectDetailPage() {
   const projectId = params.id as string
 
   const { data: project, isLoading: projectLoading, error: projectError, refetch: refetchProject } = useProject(projectId)
-  const { data: rawProjectExpenses, isLoading: expensesLoading } = useExpenses(projectId)
+  const { data: rawProjectExpenses, isLoading: expensesLoading, refetch: refetchExpenses } = useExpenses(projectId)
   const projectExpenses = rawProjectExpenses ?? []
-  const { data: rawProjectMaterials, isLoading: materialsLoading } = useMaterials(projectId)
+  const { data: rawProjectMaterials, isLoading: materialsLoading, refetch: refetchMaterials } = useMaterials(projectId)
   const projectMaterials = rawProjectMaterials ?? []
-  const { data: rawProjectPhotos, isLoading: photosLoading } = usePhotos(projectId)
+  const { data: rawProjectPhotos, isLoading: photosLoading, refetch: refetchPhotos } = usePhotos(projectId)
   const projectPhotos = rawProjectPhotos ?? []
-  const { data: rawProjectReports, isLoading: reportsLoading } = useReports(projectId)
+  const { data: rawProjectReports, isLoading: reportsLoading, refetch: refetchReports } = useReports(projectId)
   const projectReports = rawProjectReports ?? []
+
+  useRealtimeSync(["projects", "expenses", "materials", "site_photos", "progress_reports"], () => {
+    refetchProject()
+    refetchExpenses()
+    refetchMaterials()
+    refetchPhotos()
+    refetchReports()
+  })
 
   const isLoading = projectLoading || expensesLoading || materialsLoading || photosLoading || reportsLoading
 
@@ -156,6 +166,7 @@ export default function ProjectDetailPage() {
             <p className="text-muted-foreground">{project.client_name}</p>
           </div>
         </div>
+        <RefreshButton onRefresh={refetchProject} />
       </div>
 
       <Tabs defaultValue="overview">

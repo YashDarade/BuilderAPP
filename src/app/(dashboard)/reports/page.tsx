@@ -65,15 +65,16 @@ import {
   useProjects,
   useMonthlyExpenses,
   useBudgetConsumption,
-  createReport,
-  logActivity,
 } from "@/lib/hooks/use-data"
+import { createReport } from "@/lib/hooks/use-mutation"
 import { useStore } from "@/lib/store"
 import { isAdmin } from "@/lib/supabase/auth"
+import { useRealtimeSync } from "@/lib/hooks/use-realtime"
 import { reportSchema } from "@/lib/validation-schemas"
 import { ErrorState } from "@/components/error-state"
 import { toast } from "sonner"
 import { CHART_TOOLTIP_STYLE } from "@/lib/chart-theme"
+import { RefreshButton } from "@/components/refresh-button"
 
 function formatCurrencyINR(amount: number): string {
   if (amount >= 10000000) {
@@ -125,16 +126,25 @@ export default function ReportsPage() {
 
   const { data: rawReports, isLoading: reportsLoading, error: reportsError, refetch: refetchReports } = useReports()
   const reportsData = rawReports ?? []
-  const { data: rawMaterials, isLoading: materialsLoading } = useMaterials()
+  const { data: rawMaterials, isLoading: materialsLoading, refetch: refetchMaterials } = useMaterials()
   const materials = rawMaterials ?? []
-  const { data: rawExpenses, isLoading: expensesLoading } = useExpenses()
+  const { data: rawExpenses, isLoading: expensesLoading, refetch: refetchExpenses } = useExpenses()
   const expenses = rawExpenses ?? []
-  const { data: rawProjects, isLoading: projectsLoading } = useProjects()
+  const { data: rawProjects, isLoading: projectsLoading, refetch: refetchProjects } = useProjects()
   const projects = rawProjects ?? []
-  const { data: rawMonthlyExpenses } = useMonthlyExpenses()
+  const { data: rawMonthlyExpenses, refetch: refetchMonthly } = useMonthlyExpenses()
   const monthlyExpenses = rawMonthlyExpenses ?? []
-  const { data: rawBudgetConsumption } = useBudgetConsumption()
+  const { data: rawBudgetConsumption, refetch: refetchBudget } = useBudgetConsumption()
   const budgetConsumption = rawBudgetConsumption ?? []
+
+  useRealtimeSync(["progress_reports", "expenses", "materials", "projects", "roadmaps"], () => {
+    refetchReports()
+    refetchMaterials()
+    refetchExpenses()
+    refetchProjects()
+    refetchMonthly()
+    refetchBudget()
+  })
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
@@ -188,7 +198,7 @@ export default function ReportsPage() {
     }
     setFormErrors({})
     try {
-      const report = await createReport({
+      await createReport({
         project_id: result.data.project_id,
         report_date: result.data.report_date,
         work_completed: result.data.work_completed,
@@ -199,10 +209,9 @@ export default function ReportsPage() {
         photos: [],
         created_by: currentUser?.id || "",
       })
-      logActivity({ action: "create", entity_type: "report", entity_id: report.id, entity_name: `Report - ${result.data.report_date}` })
-      toast.success("Report created successfully")
       setCreateDialogOpen(false)
       setForm(emptyReportForm)
+      refetchReports()
     } catch (e: any) {
       toast.error("Failed to create report: " + e.message)
     }
@@ -255,6 +264,7 @@ export default function ReportsPage() {
             Manage progress, expense, material, and client reports
           </p>
         </div>
+        <RefreshButton onRefresh={refetchReports} />
       </div>
 
       <Tabs defaultValue="progress">
