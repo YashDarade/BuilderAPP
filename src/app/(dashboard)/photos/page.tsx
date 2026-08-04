@@ -84,16 +84,6 @@ export default function PhotosPage() {
   const role = currentUser?.role || "owner"
   const canUpload = admin || role === "site_engineer"
 
-  const { data: rawPhotosData, isLoading: photosLoading, error: photosError, refetch: refetchPhotos } = usePhotos()
-  const photosData = rawPhotosData ?? []
-  const { data: rawProjects, isLoading: projectsLoading, error: projectsError, refetch: refetchProjects } = useProjects()
-  const projects = rawProjects ?? []
-
-  useRealtimeSync(["site_photos", "projects"], () => {
-    refetchPhotos()
-    refetchProjects()
-  })
-
   const [viewMode, setViewMode] = useState<"grid" | "timeline">(role === "client" ? "timeline" : "grid")
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
@@ -110,6 +100,16 @@ export default function PhotosPage() {
   const [uploading, setUploading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const { data: rawPhotosData, isLoading: photosLoading, error: photosError, refetch: refetchPhotos } = usePhotos(undefined, search)
+  const photosData = rawPhotosData ?? []
+  const { data: rawProjects, isLoading: projectsLoading, error: projectsError, refetch: refetchProjects } = useProjects()
+  const projects = rawProjects ?? []
+
+  useRealtimeSync(["site_photos", "projects"], () => {
+    refetchPhotos()
+    refetchProjects()
+  })
 
   const isLoading = photosLoading || projectsLoading
 

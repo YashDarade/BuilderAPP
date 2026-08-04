@@ -106,8 +106,15 @@ export default function MaterialsPage() {
   const admin = isAdmin(currentUser)
   const role = currentUser?.role || "owner"
   const canEdit = admin || role === "site_engineer"
+  const [search, setSearch] = useState("")
+  const [categoryFilter, setCategoryFilter] = useState("all")
+  const [projectFilter, setProjectFilter] = useState("all")
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm] = useState(emptyForm)
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
-  const { data: rawMaterials, isLoading: materialsLoading, error: materialsError, refetch: refetchMaterials } = useMaterials()
+  const { data: rawMaterials, isLoading: materialsLoading, error: materialsError, refetch: refetchMaterials } = useMaterials(undefined, search)
   const materials = rawMaterials ?? []
   const { data: rawProjects, isLoading: projectsLoading, error: projectsError, refetch: refetchProjects } = useProjects()
   const projects = rawProjects ?? []
@@ -116,13 +123,6 @@ export default function MaterialsPage() {
     refetchMaterials()
     refetchProjects()
   })
-  const [search, setSearch] = useState("")
-  const [categoryFilter, setCategoryFilter] = useState("all")
-  const [projectFilter, setProjectFilter] = useState("all")
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState(emptyForm)
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
   const isLoading = materialsLoading || projectsLoading
 

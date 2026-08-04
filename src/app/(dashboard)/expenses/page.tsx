@@ -114,16 +114,6 @@ export default function ExpensesPage() {
   const admin = isAdmin(currentUser)
   const role = currentUser?.role || "owner"
   const canAdd = admin || role === "site_engineer"
-
-  const { data: rawExpenses, isLoading: expensesLoading, error: expensesError, refetch: refetchExpenses } = useExpenses()
-  const expenses = rawExpenses ?? []
-  const { data: rawProjects, isLoading: projectsLoading, error: projectsError, refetch: refetchProjects } = useProjects()
-  const projects = rawProjects ?? []
-
-  useRealtimeSync(["expenses", "projects"], () => {
-    refetchExpenses()
-    refetchProjects()
-  })
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [projectFilter, setProjectFilter] = useState("all")
@@ -133,6 +123,16 @@ export default function ExpensesPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+
+  const { data: rawExpenses, isLoading: expensesLoading, error: expensesError, refetch: refetchExpenses } = useExpenses(undefined, search)
+  const expenses = rawExpenses ?? []
+  const { data: rawProjects, isLoading: projectsLoading, error: projectsError, refetch: refetchProjects } = useProjects()
+  const projects = rawProjects ?? []
+
+  useRealtimeSync(["expenses", "projects"], () => {
+    refetchExpenses()
+    refetchProjects()
+  })
 
   const isLoading = expensesLoading || projectsLoading
   const now = new Date()

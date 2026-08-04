@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useDeferredValue } from "react"
 import { createClient } from "@/lib/supabase/config"
 import { useStore } from "@/lib/store"
 import { fetchWithCache } from "@/lib/offline/cache"
 import type { StoreName } from "@/lib/offline/db"
 import type { Project, Expense, Material, SitePhoto, ProgressReport, Notification, BudgetAlert, Roadmap, BillScan, ActivityLog, ActivityAction, EntityType, User } from "@/lib/types"
+import { compressImage } from "@/lib/image-utils"
 
 function getSupabase() {
   return createClient()
@@ -137,7 +138,8 @@ export async function deleteProject(id: string) {
 // ============================================================
 // EXPENSES
 // ============================================================
-export function useExpenses(projectId?: string) {
+export function useExpenses(projectId?: string, search?: string) {
+  const deferredSearch = useDeferredValue(search || "")
   return useSupabaseQuery<Expense[]>(async () => {
     const supabase = getSupabase()
     if (projectId) {
@@ -147,10 +149,12 @@ export function useExpenses(projectId?: string) {
     }
     const orgId = getCurrentOrgId()
     if (!orgId) return []
-    const { data, error } = await supabase.rpc("get_all_expenses", { p_org_id: orgId })
+    const params: Record<string, string> = { p_org_id: orgId }
+    if (deferredSearch) params.p_search = deferredSearch
+    const { data, error } = await supabase.rpc("get_all_expenses", params)
     if (error) throw error
     return (data || []) as Expense[]
-  }, [projectId], "expenses")
+  }, [projectId, deferredSearch], "expenses")
 }
 
 export async function createExpense(expense: Omit<Expense, "id" | "created_at" | "org_id">) {
@@ -196,7 +200,8 @@ export async function deleteExpense(id: string) {
 // ============================================================
 // MATERIALS
 // ============================================================
-export function useMaterials(projectId?: string) {
+export function useMaterials(projectId?: string, search?: string) {
+  const deferredSearch = useDeferredValue(search || "")
   return useSupabaseQuery<Material[]>(async () => {
     const supabase = getSupabase()
     if (projectId) {
@@ -206,10 +211,12 @@ export function useMaterials(projectId?: string) {
     }
     const orgId = getCurrentOrgId()
     if (!orgId) return []
-    const { data, error } = await supabase.rpc("get_all_materials", { p_org_id: orgId })
+    const params: Record<string, string> = { p_org_id: orgId }
+    if (deferredSearch) params.p_search = deferredSearch
+    const { data, error } = await supabase.rpc("get_all_materials", params)
     if (error) throw error
     return (data || []) as Material[]
-  }, [projectId], "materials")
+  }, [projectId, deferredSearch], "materials")
 }
 
 export async function createMaterial(material: Omit<Material, "id" | "created_at" | "updated_at" | "quantity_remaining" | "total_cost" | "org_id">) {
@@ -257,20 +264,25 @@ export async function deleteMaterial(id: string) {
 // ============================================================
 // PHOTOS
 // ============================================================
-export function usePhotos(projectId?: string) {
+export function usePhotos(projectId?: string, search?: string) {
+  const deferredSearch = useDeferredValue(search || "")
   return useSupabaseQuery<SitePhoto[]>(async () => {
     const supabase = getSupabase()
     if (projectId) {
-      const { data, error } = await supabase.rpc("get_project_photos", { p_project_id: projectId })
+      const params: Record<string, string> = { p_project_id: projectId }
+      if (deferredSearch) params.p_search = deferredSearch
+      const { data, error } = await supabase.rpc("get_project_photos", params)
       if (error) throw error
       return (data || []) as SitePhoto[]
     }
     const orgId = getCurrentOrgId()
     if (!orgId) return []
-    const { data, error } = await supabase.rpc("get_all_photos", { p_org_id: orgId })
+    const params: Record<string, string> = { p_org_id: orgId }
+    if (deferredSearch) params.p_search = deferredSearch
+    const { data, error } = await supabase.rpc("get_all_photos", params)
     if (error) throw error
     return (data || []) as SitePhoto[]
-  }, [projectId], "site_photos")
+  }, [projectId, deferredSearch], "site_photos")
 }
 
 export async function uploadPhoto(
@@ -284,13 +296,15 @@ export async function uploadPhoto(
   const userId = getCurrentUserId()
   if (!orgId || !userId) throw new Error("Not authenticated")
 
-  const ext = file.name.split(".").pop() || "jpg"
+  const compressed = await compressImage(file, { maxDimension: 2048, quality: 0.85 })
+
+  const ext = compressed.name.split(".").pop() || "jpg"
   const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
   const filePath = `${orgId}/${fileName}`
 
   const { error: uploadError } = await supabase.storage
     .from("site-photos")
-    .upload(filePath, file, { contentType: file.type })
+    .upload(filePath, compressed, { contentType: compressed.type })
   if (uploadError) throw uploadError
 
   const { data: urlData } = supabase.storage.from("site-photos").getPublicUrl(filePath)
@@ -308,7 +322,22 @@ export async function uploadPhoto(
     p_org_id: orgId,
   })
   if (error) throw error
-  return data?.[0] as SitePhoto
+
+  const photo = data?.[0] as SitePhoto
+
+  // Fire-and-forget: generate thumbnails server-side
+  fetch("/api/process-image", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      storagePath: filePath,
+      bucket: "site-photos",
+      entityId: photo.id,
+      entityType: "photo",
+    }),
+  }).catch(() => {})
+
+  return photo
 }
 
 export async function deletePhoto(id: string, storagePath?: string) {
@@ -420,13 +449,15 @@ export async function uploadBillScan(file: File): Promise<BillScan> {
   const orgId = getCurrentOrgId()
   if (!orgId) throw new Error("Not authenticated")
 
-  const ext = file.name.split(".").pop() || "jpg"
+  const compressed = await compressImage(file, { maxDimension: 2048, quality: 0.85 })
+
+  const ext = compressed.name.split(".").pop() || "jpg"
   const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
   const filePath = `${orgId}/${fileName}`
 
   const { error: uploadError } = await supabase.storage
     .from("bill-scans")
-    .upload(filePath, file, { contentType: file.type })
+    .upload(filePath, compressed, { contentType: compressed.type })
   if (uploadError) throw uploadError
 
   const { data: urlData } = supabase.storage.from("bill-scans").getPublicUrl(filePath)
