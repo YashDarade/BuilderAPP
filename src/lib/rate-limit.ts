@@ -1,15 +1,5 @@
 import { Ratelimit } from "@upstash/ratelimit"
-import { Redis } from "@upstash/redis"
-
-// Create Redis client — uses UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN env vars
-const rawUrl = process.env.UPSTASH_REDIS_REST_URL || ""
-const redisUrl = rawUrl.replace(/^rediss:\/\//, "https://")
-const redis = redisUrl
-  ? new Redis({
-      url: redisUrl,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-    })
-  : null
+import { redis } from "@/lib/redis"
 
 // ============================================================
 // RATE LIMITERS — different limits for different actions

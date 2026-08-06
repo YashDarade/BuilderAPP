@@ -7,6 +7,7 @@ import { fetchWithCache } from "@/lib/offline/cache"
 import type { StoreName } from "@/lib/offline/db"
 import type { Project, Expense, Material, SitePhoto, ProgressReport, Notification, BudgetAlert, Roadmap, BillScan, ActivityLog, ActivityAction, EntityType, User } from "@/lib/types"
 import { compressImage } from "@/lib/image-utils"
+import { cachedFetcher, invalidateClientCache } from "@/lib/cache-client"
 
 function getSupabase() {
   return createClient()
@@ -18,6 +19,10 @@ function getCurrentOrgId(): string | null {
 
 function getCurrentUserId(): string | null {
   return useStore.getState().currentUser?.id || null
+}
+
+function invalidateCache(entities: string[]) {
+  entities.forEach((e) => invalidateClientCache(`rpc:${e}`))
 }
 
 function useSupabaseQuery<T>(
@@ -73,9 +78,11 @@ export function useProjects() {
     const supabase = getSupabase()
     const orgId = getCurrentOrgId()
     if (!orgId) return []
-    const { data, error } = await supabase.rpc("get_all_projects", { p_org_id: orgId })
-    if (error) throw error
-    return (data || []) as Project[]
+    return cachedFetcher(`rpc:projects:${orgId}`, async () => {
+      const { data, error } = await supabase.rpc("get_all_projects", { p_org_id: orgId })
+      if (error) throw error
+      return (data || []) as Project[]
+    })
   }, [], "projects")
 }
 
@@ -106,6 +113,7 @@ export async function createProject(project: Omit<Project, "id" | "created_at" |
     p_engineer_id: project.engineer_id || null,
   })
   if (error) throw error
+  invalidateCache(["projects"])
   return data?.[0] as Project
 }
 
@@ -126,6 +134,7 @@ export async function updateProject(id: string, updates: Partial<Project>) {
     p_engineer_id: updates.engineer_id ?? null,
   })
   if (error) throw error
+  invalidateCache(["projects"])
   return data?.[0] as Project
 }
 
@@ -133,6 +142,7 @@ export async function deleteProject(id: string) {
   const supabase = getSupabase()
   const { error } = await supabase.rpc("delete_project", { p_id: id })
   if (error) throw error
+  invalidateCache(["projects"])
 }
 
 // ============================================================
@@ -149,11 +159,14 @@ export function useExpenses(projectId?: string, search?: string) {
     }
     const orgId = getCurrentOrgId()
     if (!orgId) return []
-    const params: Record<string, string> = { p_org_id: orgId }
-    if (deferredSearch) params.p_search = deferredSearch
-    const { data, error } = await supabase.rpc("get_all_expenses", params)
-    if (error) throw error
-    return (data || []) as Expense[]
+    const cacheKey = deferredSearch ? `rpc:expenses:${orgId}:${deferredSearch}` : `rpc:expenses:${orgId}`
+    return cachedFetcher(cacheKey, async () => {
+      const params: Record<string, string> = { p_org_id: orgId }
+      if (deferredSearch) params.p_search = deferredSearch
+      const { data, error } = await supabase.rpc("get_all_expenses", params)
+      if (error) throw error
+      return (data || []) as Expense[]
+    })
   }, [projectId, deferredSearch], "expenses")
 }
 
@@ -173,6 +186,7 @@ export async function createExpense(expense: Omit<Expense, "id" | "created_at" |
     p_org_id: orgId,
   })
   if (error) throw error
+  if (orgId) invalidateCache(["expenses"])
   return data?.[0] as Expense
 }
 
@@ -188,6 +202,7 @@ export async function updateExpense(id: string, updates: Partial<Expense>) {
     p_bill_url: updates.bill_url ?? null,
   })
   if (error) throw error
+  invalidateCache(["expenses"])
   return data?.[0] as Expense
 }
 
@@ -195,6 +210,7 @@ export async function deleteExpense(id: string) {
   const supabase = getSupabase()
   const { error } = await supabase.rpc("delete_expense", { p_id: id })
   if (error) throw error
+  invalidateCache(["expenses"])
 }
 
 // ============================================================
@@ -211,11 +227,14 @@ export function useMaterials(projectId?: string, search?: string) {
     }
     const orgId = getCurrentOrgId()
     if (!orgId) return []
-    const params: Record<string, string> = { p_org_id: orgId }
-    if (deferredSearch) params.p_search = deferredSearch
-    const { data, error } = await supabase.rpc("get_all_materials", params)
-    if (error) throw error
-    return (data || []) as Material[]
+    const cacheKey = deferredSearch ? `rpc:materials:${orgId}:${deferredSearch}` : `rpc:materials:${orgId}`
+    return cachedFetcher(cacheKey, async () => {
+      const params: Record<string, string> = { p_org_id: orgId }
+      if (deferredSearch) params.p_search = deferredSearch
+      const { data, error } = await supabase.rpc("get_all_materials", params)
+      if (error) throw error
+      return (data || []) as Material[]
+    })
   }, [projectId, deferredSearch], "materials")
 }
 
@@ -235,6 +254,7 @@ export async function createMaterial(material: Omit<Material, "id" | "created_at
     p_org_id: orgId,
   })
   if (error) throw error
+  if (orgId) invalidateCache(["materials"])
   return data?.[0] as Material
 }
 
@@ -252,6 +272,7 @@ export async function updateMaterial(id: string, updates: Partial<Material>) {
     p_reorder_level: updates.reorder_level ?? null,
   })
   if (error) throw error
+  invalidateCache(["materials"])
   return data?.[0] as Material
 }
 
@@ -259,6 +280,7 @@ export async function deleteMaterial(id: string) {
   const supabase = getSupabase()
   const { error } = await supabase.rpc("delete_material", { p_id: id })
   if (error) throw error
+  invalidateCache(["materials"])
 }
 
 // ============================================================
@@ -277,11 +299,14 @@ export function usePhotos(projectId?: string, search?: string) {
     }
     const orgId = getCurrentOrgId()
     if (!orgId) return []
-    const params: Record<string, string> = { p_org_id: orgId }
-    if (deferredSearch) params.p_search = deferredSearch
-    const { data, error } = await supabase.rpc("get_all_photos", params)
-    if (error) throw error
-    return (data || []) as SitePhoto[]
+    const cacheKey = deferredSearch ? `rpc:photos:${orgId}:${deferredSearch}` : `rpc:photos:${orgId}`
+    return cachedFetcher(cacheKey, async () => {
+      const params: Record<string, string> = { p_org_id: orgId }
+      if (deferredSearch) params.p_search = deferredSearch
+      const { data, error } = await supabase.rpc("get_all_photos", params)
+      if (error) throw error
+      return (data || []) as SitePhoto[]
+    })
   }, [projectId, deferredSearch], "site_photos")
 }
 
@@ -347,6 +372,7 @@ export async function deletePhoto(id: string, storagePath?: string) {
   }
   const { error } = await supabase.rpc("delete_photo", { p_id: id })
   if (error) throw error
+  invalidateCache(["photos"])
 }
 
 // ============================================================
@@ -362,9 +388,11 @@ export function useReports(projectId?: string) {
     }
     const orgId = getCurrentOrgId()
     if (!orgId) return []
-    const { data, error } = await supabase.rpc("get_all_reports", { p_org_id: orgId })
-    if (error) throw error
-    return (data || []) as ProgressReport[]
+    return cachedFetcher(`rpc:reports:${orgId}`, async () => {
+      const { data, error } = await supabase.rpc("get_all_reports", { p_org_id: orgId })
+      if (error) throw error
+      return (data || []) as ProgressReport[]
+    })
   }, [projectId], "progress_reports")
 }
 
@@ -385,6 +413,7 @@ export async function createReport(report: Omit<ProgressReport, "id" | "created_
     p_org_id: orgId,
   })
   if (error) throw error
+  if (orgId) invalidateCache(["reports"])
   return data?.[0] as ProgressReport
 }
 
@@ -526,6 +555,7 @@ export async function createRoadmap(roadmap: Omit<Roadmap, "id" | "created_at" |
     p_created_by: userId,
   })
   if (error) throw error
+  if (orgId) invalidateCache(["projects"])
   return data?.[0] as Roadmap
 }
 
@@ -538,6 +568,7 @@ export async function updateRoadmap(id: string, updates: Partial<Roadmap>) {
     p_phases: updates.phases ?? null,
   })
   if (error) throw error
+  invalidateCache(["projects"])
   return data?.[0] as Roadmap
 }
 
@@ -545,6 +576,7 @@ export async function deleteRoadmap(id: string) {
   const supabase = getSupabase()
   const { error } = await supabase.rpc("delete_roadmap", { p_id: id })
   if (error) throw error
+  invalidateCache(["projects"])
 }
 
 // ============================================================
@@ -577,51 +609,44 @@ export function useMonthlyExpenses() {
     if (!orgId) return []
     const sixMonthsAgo = new Date()
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-    const { data, error } = await supabase.rpc("get_expenses_for_chart", {
-      p_org_id: orgId,
-      p_since: sixMonthsAgo.toISOString().split("T")[0],
+    const since = sixMonthsAgo.toISOString().split("T")[0]
+    return cachedFetcher(`rpc:expenses_chart:${orgId}:${since}`, async () => {
+      const { data, error } = await supabase.rpc("get_expenses_for_chart", {
+        p_org_id: orgId,
+        p_since: since,
+      })
+      if (error) throw error
+      const grouped: Record<string, number> = {}
+      data?.forEach((e: { amount?: number; date?: string }) => {
+        const month = e.date?.substring(0, 7) || "Unknown"
+        grouped[month] = (grouped[month] || 0) + (e.amount || 0)
+      })
+      return Object.entries(grouped).map(([month, amount]) => ({ month, amount }))
     })
-    if (error) throw error
-    const grouped: Record<string, number> = {}
-    data?.forEach((e: { amount?: number; date?: string }) => {
-      const month = e.date?.substring(0, 7) || "Unknown"
-      grouped[month] = (grouped[month] || 0) + (e.amount || 0)
-    })
-    return Object.entries(grouped).map(([month, amount]) => ({ month, amount }))
   })
 }
 
 export function useBudgetConsumption() {
-  return useSupabaseQuery<{ project_id: string; project_name: string; budget: number; spent: number; percentage: number }[]>(async () => {
-    const supabase = getSupabase()
-    const orgId = getCurrentOrgId()
-    if (!orgId) return []
-    const { data, error } = await supabase.rpc("get_all_projects", { p_org_id: orgId })
-    if (error) throw error
-    return (data || []).map((p: any) => ({
-      project_id: p.id,
-      project_name: p.name,
-      budget: p.budget || 0,
-      spent: p.spent || 0,
-      percentage: p.budget ? Math.round(((p.spent || 0) / p.budget) * 100) : 0,
-    }))
-  })
+  const { data: projects } = useProjects()
+  const mapped = (projects || []).map((p) => ({
+    project_id: p.id,
+    project_name: p.name,
+    budget: p.budget || 0,
+    spent: p.spent || 0,
+    percentage: p.budget ? Math.round(((p.spent || 0) / p.budget) * 100) : 0,
+  }))
+  return { data: mapped, isLoading: false, error: null, refetch: () => {} }
 }
 
 export function useProjectProgress() {
-  return useSupabaseQuery<{ project_id: string; project_name: string; progress: number; status: string }[]>(async () => {
-    const supabase = getSupabase()
-    const orgId = getCurrentOrgId()
-    if (!orgId) return []
-    const { data, error } = await supabase.rpc("get_all_projects", { p_org_id: orgId })
-    if (error) throw error
-    return (data || []).map((p: any) => ({
-      project_id: p.id,
-      project_name: p.name,
-      progress: p.progress || 0,
-      status: p.status || "Planning",
-    }))
-  })
+  const { data: projects } = useProjects()
+  const mapped = (projects || []).map((p) => ({
+    project_id: p.id,
+    project_name: p.name,
+    progress: p.progress || 0,
+    status: p.status || "Planning",
+  }))
+  return { data: mapped, isLoading: false, error: null, refetch: () => {} }
 }
 
 // ============================================================
