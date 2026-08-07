@@ -26,7 +26,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { useProjects } from "@/lib/hooks/use-data"
-import { createProject } from "@/lib/hooks/use-mutation"
+import { createProject, deleteProject } from "@/lib/hooks/use-mutation"
 import { useStore } from "@/lib/store"
 import { projectSchema } from "@/lib/validation-schemas"
 import { useRealtimeSync } from "@/lib/hooks/use-realtime"
@@ -44,6 +44,7 @@ import {
   Wallet,
   ArrowUpDown,
   FolderKanban,
+  Trash2,
 } from "lucide-react"
 
 const STATUS_COLORS: Record<ProjectStatus, string> = {
@@ -101,6 +102,8 @@ export default function ProjectsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [newProject, setNewProject] = useState({
     name: "",
     client_name: "",
@@ -201,6 +204,21 @@ export default function ProjectsPage() {
       toast.error("Failed to create project: " + e.message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleDeleteProject() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteProject(deleteTarget.id, deleteTarget.name)
+      toast.success("Project deleted")
+      setDeleteTarget(null)
+      refetch()
+    } catch (e: any) {
+      toast.error(e.message || "Failed to delete project")
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -414,17 +432,33 @@ export default function ProjectsPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredProjects.map((project) => (
             <Link key={project.id} href={`/projects/${project.id}`}>
-              <Card className="h-full cursor-pointer transition-shadow hover:shadow-md">
+              <Card className="h-full cursor-pointer transition-shadow hover:shadow-md relative group">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <CardTitle className="text-lg leading-tight">
                       {project.name}
                     </CardTitle>
-                    <Badge
-                      className={`shrink-0 border ${STATUS_COLORS[project.status]}`}
-                    >
-                      {project.status}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        className={`shrink-0 border ${STATUS_COLORS[project.status]}`}
+                      >
+                        {project.status}
+                      </Badge>
+                      {currentUser?.role === "owner" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setDeleteTarget({ id: project.id, name: project.name })
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <p className="text-sm text-muted-foreground">
                     {project.client_name}
@@ -469,6 +503,23 @@ export default function ProjectsPage() {
           ))}
         </div>
       )}
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Project</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This will soft-delete the project and hide it from all views. You can restore it later from Deleted Items.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteProject} disabled={deleting}>
+              {deleting ? "Deleting..." : "Delete Project"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

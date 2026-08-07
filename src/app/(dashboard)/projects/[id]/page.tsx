@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -7,11 +8,22 @@ import { Button } from "@/components/ui/button"
 import { Progress, ProgressLabel, ProgressValue } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { useProject, useExpenses, useMaterials, usePhotos, useReports } from "@/lib/hooks/use-data"
+import { deleteProject } from "@/lib/hooks/use-mutation"
 import { useRealtimeSync } from "@/lib/hooks/use-realtime"
+import { useStore } from "@/lib/store"
 import { ErrorState } from "@/components/error-state"
 import { RefreshButton } from "@/components/refresh-button"
 import { PageHeaderSkeleton, StatCardsSkeleton, TableSkeleton } from "@/components/page-skeletons"
+import { toast } from "sonner"
 import type { ProjectStatus } from "@/lib/types"
 import {
   ArrowLeft,
@@ -27,6 +39,7 @@ import {
   Package,
   Receipt,
   FileText,
+  Trash2,
 } from "lucide-react"
 
 const STATUS_COLORS: Record<ProjectStatus, string> = {
@@ -73,6 +86,9 @@ export default function ProjectDetailPage() {
   const params = useParams()
   const router = useRouter()
   const projectId = params.id as string
+  const { currentUser } = useStore()
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const { data: project, isLoading: projectLoading, error: projectError, refetch: refetchProject } = useProject(projectId)
   const { data: rawProjectExpenses, isLoading: expensesLoading, refetch: refetchExpenses } = useExpenses(projectId)
@@ -145,6 +161,21 @@ export default function ProjectDetailPage() {
 
   const currentMilestoneIndex = getStatusIndex(project.status)
 
+  async function handleDelete() {
+    if (!project) return
+    setDeleting(true)
+    try {
+      await deleteProject(project.id, project.name)
+      toast.success("Project deleted")
+      setDeleteDialogOpen(false)
+      router.push("/projects")
+    } catch (e: any) {
+      toast.error(e.message || "Failed to delete project")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -166,7 +197,33 @@ export default function ProjectDetailPage() {
             <p className="text-muted-foreground">{project.client_name}</p>
           </div>
         </div>
-        <RefreshButton onRefresh={refetchProject} />
+        <div className="flex items-center gap-2">
+          <RefreshButton onRefresh={refetchProject} />
+          {currentUser?.role === "owner" && (
+            <>
+              <Button variant="destructive" size="sm" onClick={() => setDeleteDialogOpen(true)}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+              <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Delete Project</DialogTitle>
+                    <DialogDescription>
+                      Are you sure you want to delete <strong>{project.name}</strong>? This will soft-delete the project and hide it from all views. You can restore it later from Deleted Items.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+                    <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                      {deleting ? "Deleting..." : "Delete Project"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue="overview">
