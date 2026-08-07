@@ -819,7 +819,7 @@
       WHERE vp.vendor_id = p_vendor_id
         AND vp.org_id = get_current_user_org_id()
     )
-    ORDER BY "date", entry_type;
+    ORDER BY 2, 8;
   $$;
 
   -- ============================================================
