@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/config"
 import { useStore } from "@/lib/store"
 import { fetchWithCache } from "@/lib/offline/cache"
 import type { StoreName } from "@/lib/offline/db"
-import type { Project, Expense, Material, SitePhoto, ProgressReport, Notification, BudgetAlert, Roadmap, BillScan, ActivityLog, ActivityAction, EntityType, User } from "@/lib/types"
+import type { Project, Expense, Material, SitePhoto, ProgressReport, Notification, BudgetAlert, Roadmap, BillScan, ActivityLog, ActivityAction, EntityType, User, Vendor, PurchaseOrder, POItem, MaterialReceiving, VendorPayment, VendorLedgerEntry, VendorSummary } from "@/lib/types"
 import { compressImage } from "@/lib/image-utils"
 import { cachedFetcher, invalidateClientCache } from "@/lib/cache-client"
 
@@ -856,4 +856,330 @@ export function useDeletedTeamMembers() {
     if (error) throw error
     return (data || []) as User[]
   })
+}
+
+// ============================================================
+// VENDORS
+// ============================================================
+export function useVendors(search?: string, status?: string) {
+  const deferredSearch = useDeferredValue(search || "")
+  return useSupabaseQuery<Vendor[]>(async () => {
+    const supabase = getSupabase()
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const cacheKey = `rpc:vendors:${orgId}:${deferredSearch}:${status || ""}`
+    return cachedFetcher(cacheKey, async () => {
+      const params: Record<string, string> = { p_org_id: orgId }
+      if (deferredSearch) params.p_search = deferredSearch
+      if (status && status !== "all") params.p_status = status
+      const { data, error } = await supabase.rpc("get_all_vendors", params)
+      if (error) throw error
+      return (data || []) as Vendor[]
+    })
+  }, [deferredSearch, status], "vendors")
+}
+
+export function useVendor(id: string | undefined) {
+  return useSupabaseQuery<Vendor | null>(async () => {
+    if (!id) return null
+    const supabase = getSupabase()
+    const { data, error } = await supabase.rpc("get_vendor", { p_id: id })
+    if (error) throw error
+    return (data?.[0] || null) as Vendor | null
+  }, [id])
+}
+
+export async function createVendor(vendor: Omit<Vendor, "id" | "created_at" | "updated_at" | "org_id">) {
+  const supabase = getSupabase()
+  const orgId = getCurrentOrgId()
+  const userId = getCurrentUserId()
+  const { data, error } = await supabase.rpc("insert_vendor", {
+    p_business_name: vendor.business_name,
+    p_owner_name: vendor.owner_name,
+    p_phone: vendor.phone,
+    p_alt_phone: vendor.alt_phone || null,
+    p_gst_number: vendor.gst_number || null,
+    p_address: vendor.address || null,
+    p_material_categories: vendor.material_categories || [],
+    p_payment_terms_days: vendor.payment_terms_days || 30,
+    p_credit_limit: vendor.credit_limit || 0,
+    p_status: vendor.status || "active",
+    p_notes: vendor.notes || null,
+    p_org_id: orgId,
+    p_created_by: userId,
+  })
+  if (error) throw error
+  invalidateCache(["vendors"])
+  return data?.[0] as Vendor
+}
+
+export async function updateVendor(id: string, updates: Partial<Vendor>) {
+  const supabase = getSupabase()
+  const { data, error } = await supabase.rpc("update_vendor", {
+    p_id: id,
+    p_business_name: updates.business_name ?? null,
+    p_owner_name: updates.owner_name ?? null,
+    p_phone: updates.phone ?? null,
+    p_alt_phone: updates.alt_phone ?? null,
+    p_gst_number: updates.gst_number ?? null,
+    p_address: updates.address ?? null,
+    p_material_categories: updates.material_categories ?? null,
+    p_payment_terms_days: updates.payment_terms_days ?? null,
+    p_credit_limit: updates.credit_limit ?? null,
+    p_status: updates.status ?? null,
+    p_notes: updates.notes ?? null,
+  })
+  if (error) throw error
+  invalidateCache(["vendors"])
+  return data?.[0] as Vendor
+}
+
+export async function deleteVendor(id: string) {
+  const supabase = getSupabase()
+  const { error } = await supabase.rpc("delete_vendor", { p_id: id })
+  if (error) throw error
+  invalidateCache(["vendors"])
+}
+
+export async function restoreVendor(id: string) {
+  const supabase = getSupabase()
+  const { error } = await supabase.rpc("restore_vendor", { p_id: id })
+  if (error) throw error
+  invalidateCache(["vendors"])
+}
+
+// ============================================================
+// PURCHASE ORDERS
+// ============================================================
+export function usePurchaseOrders(search?: string, status?: string, vendorId?: string, projectId?: string) {
+  const deferredSearch = useDeferredValue(search || "")
+  return useSupabaseQuery<PurchaseOrder[]>(async () => {
+    const supabase = getSupabase()
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const cacheKey = `rpc:pos:${orgId}:${deferredSearch}:${status || ""}:${vendorId || ""}:${projectId || ""}`
+    return cachedFetcher(cacheKey, async () => {
+      const params: Record<string, any> = { p_org_id: orgId }
+      if (deferredSearch) params.p_search = deferredSearch
+      if (status && status !== "all") params.p_status = status
+      if (vendorId) params.p_vendor_id = vendorId
+      if (projectId) params.p_project_id = projectId
+      const { data, error } = await supabase.rpc("get_all_purchase_orders", params)
+      if (error) throw error
+      return (data || []) as PurchaseOrder[]
+    })
+  }, [deferredSearch, status, vendorId, projectId], "purchase_orders")
+}
+
+export function usePurchaseOrder(id: string | undefined) {
+  return useSupabaseQuery<PurchaseOrder | null>(async () => {
+    if (!id) return null
+    const supabase = getSupabase()
+    const { data, error } = await supabase.rpc("get_purchase_order", { p_id: id })
+    if (error) throw error
+    return (data?.[0] || null) as PurchaseOrder | null
+  }, [id])
+}
+
+export function usePOItems(poId: string | undefined) {
+  return useSupabaseQuery<POItem[]>(async () => {
+    if (!poId) return []
+    const supabase = getSupabase()
+    const { data, error } = await supabase.rpc("get_po_items", { p_po_id: poId })
+    if (error) throw error
+    return (data || []) as POItem[]
+  }, [poId])
+}
+
+export async function createPurchaseOrder(data: {
+  vendor_id: string; project_id: string; po_date: string;
+  expected_delivery_date?: string; tax_amount?: number;
+  transport_amount?: number; notes?: string;
+  items: { material_name: string; description?: string; quantity: number; unit: string; unit_price: number }[];
+}) {
+  const supabase = getSupabase()
+  const orgId = getCurrentOrgId()
+  const userId = getCurrentUserId()
+  const { data: result, error } = await supabase.rpc("insert_purchase_order", {
+    p_vendor_id: data.vendor_id,
+    p_project_id: data.project_id,
+    p_po_date: data.po_date,
+    p_expected_delivery_date: data.expected_delivery_date || null,
+    p_tax_amount: data.tax_amount || 0,
+    p_transport_amount: data.transport_amount || 0,
+    p_notes: data.notes || null,
+    p_items: data.items,
+    p_org_id: orgId,
+    p_created_by: userId,
+  })
+  if (error) throw error
+  invalidateCache(["purchase_orders", "vendors"])
+  return result?.[0] as PurchaseOrder
+}
+
+export async function updatePurchaseOrder(id: string, updates: Partial<PurchaseOrder>) {
+  const supabase = getSupabase()
+  const { data, error } = await supabase.rpc("update_purchase_order", {
+    p_id: id,
+    p_expected_delivery_date: updates.expected_delivery_date ?? null,
+    p_tax_amount: updates.tax_amount ?? null,
+    p_transport_amount: updates.transport_amount ?? null,
+    p_notes: updates.notes ?? null,
+    p_status: updates.status ?? null,
+  })
+  if (error) throw error
+  invalidateCache(["purchase_orders"])
+  return data?.[0] as PurchaseOrder
+}
+
+export async function cancelPurchaseOrder(id: string) {
+  const supabase = getSupabase()
+  const { data, error } = await supabase.rpc("cancel_purchase_order", { p_id: id })
+  if (error) throw error
+  invalidateCache(["purchase_orders"])
+  return data?.[0] as PurchaseOrder
+}
+
+export async function deletePurchaseOrder(id: string) {
+  const supabase = getSupabase()
+  const { error } = await supabase.rpc("delete_purchase_order", { p_id: id })
+  if (error) throw error
+  invalidateCache(["purchase_orders"])
+}
+
+// ============================================================
+// MATERIAL RECEIVINGS
+// ============================================================
+export function usePOReceivings(poId: string | undefined) {
+  return useSupabaseQuery<MaterialReceiving[]>(async () => {
+    if (!poId) return []
+    const supabase = getSupabase()
+    const { data, error } = await supabase.rpc("get_po_receivings", { p_po_id: poId })
+    if (error) throw error
+    return (data || []) as MaterialReceiving[]
+  }, [poId])
+}
+
+export async function recordMaterialReceiving(data: {
+  po_id: string; po_item_id: string; received_quantity: number;
+  received_date?: string; notes?: string;
+}) {
+  const supabase = getSupabase()
+  const orgId = getCurrentOrgId()
+  const userId = getCurrentUserId()
+  const { data: result, error } = await supabase.rpc("insert_material_receiving", {
+    p_po_id: data.po_id,
+    p_po_item_id: data.po_item_id,
+    p_received_quantity: data.received_quantity,
+    p_received_date: data.received_date || null,
+    p_notes: data.notes || null,
+    p_org_id: orgId,
+    p_received_by: userId,
+  })
+  if (error) throw error
+  invalidateCache(["purchase_orders", "materials"])
+  return result?.[0] as MaterialReceiving
+}
+
+// ============================================================
+// VENDOR PAYMENTS
+// ============================================================
+export function useVendorPayments(vendorId?: string, poId?: string) {
+  return useSupabaseQuery<VendorPayment[]>(async () => {
+    const supabase = getSupabase()
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const params: Record<string, any> = { p_org_id: orgId }
+    if (vendorId) params.p_vendor_id = vendorId
+    if (poId) params.p_po_id = poId
+    const { data, error } = await supabase.rpc("get_all_vendor_payments", params)
+    if (error) throw error
+    return (data || []) as VendorPayment[]
+  }, [vendorId, poId])
+}
+
+export async function recordVendorPayment(data: {
+  po_id: string; vendor_id: string; amount: number;
+  payment_date?: string; payment_method: string;
+  reference_number?: string; notes?: string;
+}) {
+  const supabase = getSupabase()
+  const orgId = getCurrentOrgId()
+  const userId = getCurrentUserId()
+  const { data: result, error } = await supabase.rpc("insert_vendor_payment", {
+    p_po_id: data.po_id,
+    p_vendor_id: data.vendor_id,
+    p_amount: data.amount,
+    p_payment_date: data.payment_date || null,
+    p_payment_method: data.payment_method,
+    p_reference_number: data.reference_number || null,
+    p_notes: data.notes || null,
+    p_org_id: orgId,
+    p_created_by: userId,
+  })
+  if (error) throw error
+  invalidateCache(["purchase_orders", "vendors"])
+  return result?.[0] as VendorPayment
+}
+
+export async function deleteVendorPayment(id: string) {
+  const supabase = getSupabase()
+  const { error } = await supabase.rpc("delete_vendor_payment", { p_id: id })
+  if (error) throw error
+  invalidateCache(["purchase_orders", "vendors"])
+}
+
+// ============================================================
+// VENDOR LEDGER
+// ============================================================
+export function useVendorLedger(vendorId: string | undefined) {
+  return useSupabaseQuery<VendorLedgerEntry[]>(async () => {
+    if (!vendorId) return []
+    const supabase = getSupabase()
+    const { data, error } = await supabase.rpc("get_vendor_ledger", { p_vendor_id: vendorId })
+    if (error) throw error
+    return (data || []) as VendorLedgerEntry[]
+  }, [vendorId])
+}
+
+// ============================================================
+// OUTSTANDING DASHBOARD
+// ============================================================
+export function useOutstandingSummary() {
+  return useSupabaseQuery<any>(async () => {
+    const supabase = getSupabase()
+    const orgId = getCurrentOrgId()
+    if (!orgId) return null
+    const { data, error } = await supabase.rpc("get_outstanding_summary", { p_org_id: orgId })
+    if (error) throw error
+    return data?.[0] || null
+  })
+}
+
+export function useTopVendors(limit?: number) {
+  return useSupabaseQuery<VendorSummary[]>(async () => {
+    const supabase = getSupabase()
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const { data, error } = await supabase.rpc("get_top_vendors", { p_org_id: orgId, p_limit: limit || 5 })
+    if (error) throw error
+    return (data || []) as VendorSummary[]
+  }, [limit])
+}
+
+// ============================================================
+// GLOBAL SEARCH
+// ============================================================
+export function useVendorSearch(query: string) {
+  const deferredQuery = useDeferredValue(query)
+  return useSupabaseQuery<any[]>(async () => {
+    const supabase = getSupabase()
+    const orgId = getCurrentOrgId()
+    if (!orgId) return []
+    const { data, error } = await supabase.rpc("search_vendors_and_pos", {
+      p_org_id: orgId, p_query: deferredQuery,
+    })
+    if (error) throw error
+    return (data || [])
+  }, [deferredQuery])
 }

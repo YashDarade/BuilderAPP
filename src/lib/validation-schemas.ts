@@ -181,3 +181,148 @@ export const photoUploadSchema = z.object({
 })
 
 export type PhotoUploadFormValues = z.infer<typeof photoUploadSchema>
+
+// ============================================================
+// VENDOR
+// ============================================================
+export const vendorSchema = z.object({
+  business_name: z
+    .string()
+    .min(2, "Business name must be at least 2 characters")
+    .max(100, "Business name must be under 100 characters"),
+  owner_name: z
+    .string()
+    .min(2, "Owner name must be at least 2 characters")
+    .max(100, "Owner name must be under 100 characters"),
+  phone: z
+    .string()
+    .min(10, "Phone must be at least 10 digits")
+    .max(15, "Phone must be under 15 digits")
+    .regex(/^[0-9+\s\-]+$/, "Phone contains invalid characters"),
+  alt_phone: z
+    .string()
+    .max(15, "Alt phone must be under 15 digits")
+    .regex(/^[0-9+\s\-]*$/, "Alt phone contains invalid characters")
+    .optional()
+    .or(z.literal("")),
+  gst_number: z
+    .string()
+    .max(15, "GST number must be under 15 characters")
+    .regex(/^[0-9A-Z]*$/, "GST must contain only uppercase letters and digits")
+    .optional()
+    .or(z.literal("")),
+  address: z
+    .string()
+    .max(300, "Address must be under 300 characters")
+    .optional()
+    .or(z.literal("")),
+  material_categories: z
+    .array(z.string())
+    .optional()
+    .default([]),
+  payment_terms_days: z
+    .number()
+    .min(0, "Payment terms cannot be negative")
+    .max(365, "Payment terms must be under 365 days"),
+  credit_limit: z
+    .number()
+    .min(0, "Credit limit cannot be negative")
+    .max(99999999, "Credit limit is too large"),
+  status: z.enum(["active", "inactive"]),
+  notes: z
+    .string()
+    .max(500, "Notes must be under 500 characters")
+    .optional()
+    .or(z.literal("")),
+})
+
+export type VendorFormValues = z.infer<typeof vendorSchema>
+
+// ============================================================
+// PURCHASE ORDER
+// ============================================================
+export const purchaseOrderSchema = z.object({
+  vendor_id: z.string().min(1, "Vendor is required"),
+  project_id: z.string().min(1, "Project is required"),
+  po_date: z.string().min(1, "PO date is required"),
+  expected_delivery_date: z.string().optional().or(z.literal("")),
+  tax_amount: z
+    .number()
+    .min(0, "Tax cannot be negative")
+    .max(9999999, "Tax is too large"),
+  transport_amount: z
+    .number()
+    .min(0, "Transport cannot be negative")
+    .max(9999999, "Transport is too large"),
+  notes: z
+    .string()
+    .max(500, "Notes must be under 500 characters")
+    .optional()
+    .or(z.literal("")),
+  items: z
+    .array(
+      z.object({
+        material_name: z.string().min(1, "Material name is required"),
+        description: z.string().optional().or(z.literal("")),
+        quantity: z.number().positive("Quantity must be greater than 0"),
+        unit: z.string().min(1, "Unit is required"),
+        unit_price: z.number().min(0, "Price cannot be negative"),
+      })
+    )
+    .min(1, "At least one line item is required"),
+})
+
+export type PurchaseOrderFormValues = z.infer<typeof purchaseOrderSchema>
+
+// ============================================================
+// PO LINE ITEM (for inline editing)
+// ============================================================
+export const poItemSchema = z.object({
+  material_name: z.string().min(1, "Material name is required"),
+  description: z.string().optional().or(z.literal("")),
+  quantity: z.number().positive("Quantity must be greater than 0"),
+  unit: z.string().min(1, "Unit is required"),
+  unit_price: z.number().min(0, "Price cannot be negative"),
+})
+
+export type POItemFormValues = z.infer<typeof poItemSchema>
+
+// ============================================================
+// MATERIAL RECEIVING
+// ============================================================
+export const materialReceivingSchema = z.object({
+  po_item_id: z.string().min(1, "Line item is required"),
+  received_quantity: z
+    .number()
+    .positive("Received quantity must be greater than 0"),
+  received_date: z.string().min(1, "Received date is required"),
+  notes: z
+    .string()
+    .max(500, "Notes must be under 500 characters")
+    .optional()
+    .or(z.literal("")),
+})
+
+export type MaterialReceivingFormValues = z.infer<typeof materialReceivingSchema>
+
+// ============================================================
+// VENDOR PAYMENT
+// ============================================================
+export const vendorPaymentSchema = z.object({
+  po_id: z.string().min(1, "Purchase order is required"),
+  amount: z.number().positive("Amount must be greater than 0"),
+  payment_date: z.string().min(1, "Payment date is required"),
+  payment_method: z.enum(["cash", "upi", "cheque", "bank_transfer"]),
+  reference_number: z
+    .string()
+    .max(50, "Reference must be under 50 characters")
+    .optional()
+    .or(z.literal("")),
+  notes: z
+    .string()
+    .max(500, "Notes must be under 500 characters")
+    .optional()
+    .or(z.literal("")),
+})
+
+export type VendorPaymentFormValues = z.infer<typeof vendorPaymentSchema>

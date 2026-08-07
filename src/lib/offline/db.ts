@@ -14,6 +14,9 @@ const STORES = [
   "budget_alerts",
   "activity_logs",
   "users",
+  "vendors",
+  "purchase_orders",
+  "vendor_payments",
 ] as const
 
 type StoreName = (typeof STORES)[number]

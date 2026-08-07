@@ -16,6 +16,11 @@ type RealtimeTable =
   | "activity_logs"
   | "users"
   | "bill_scans"
+  | "vendors"
+  | "purchase_orders"
+  | "po_items"
+  | "material_receivings"
+  | "vendor_payments"
 
 /**
  * Subscribes to Supabase Realtime changes on one or more tables

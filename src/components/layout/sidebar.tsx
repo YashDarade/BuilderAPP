@@ -21,6 +21,9 @@ import {
   History,
   Users,
   Trash2,
+  Users2,
+  ClipboardList,
+  AlertCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/lib/store"
@@ -46,6 +49,9 @@ const allNavigation = [
   { name: "Materials", href: "/materials", icon: Package, roles: ["owner", "site_engineer"] },
   { name: "Expenses", href: "/expenses", icon: Receipt, roles: ["owner", "site_engineer", "client"] },
   { name: "Budget", href: "/budget", icon: Wallet, roles: ["owner"] },
+  { name: "Vendors", href: "/vendors", icon: Users2, roles: ["owner", "site_engineer"] },
+  { name: "Purchase Orders", href: "/purchase-orders", icon: ClipboardList, roles: ["owner", "site_engineer"] },
+  { name: "Outstanding", href: "/outstanding", icon: AlertCircle, roles: ["owner"] },
   { name: "Reports", href: "/reports", icon: FileText, roles: ["owner", "site_engineer", "client"] },
   { name: "Roadmap", href: "/roadmap", icon: Map, roles: ["owner", "client"] },
   { name: "AI Tools", href: "/ai-tools", icon: Brain, roles: ["owner"] },

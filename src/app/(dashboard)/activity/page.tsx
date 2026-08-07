@@ -33,6 +33,9 @@ import {
   Users,
   RefreshCw,
   Clock,
+  Users2,
+  ClipboardList,
+  IndianRupee,
 } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { useActivityLogs } from "@/lib/hooks/use-data"
@@ -63,6 +66,9 @@ const entityIcons: Record<EntityType, typeof FolderKanban> = {
   roadmap: Map,
   bill_scan: ScanLine,
   team: Users,
+  vendor: Users2,
+  purchase_order: ClipboardList,
+  vendor_payment: IndianRupee,
 }
 
 const entityLabels: Record<EntityType, string> = {
@@ -74,6 +80,9 @@ const entityLabels: Record<EntityType, string> = {
   roadmap: "Roadmap",
   bill_scan: "Bill Scan",
   team: "Team",
+  vendor: "Vendor",
+  purchase_order: "Purchase Order",
+  vendor_payment: "Vendor Payment",
 }
 
 export default function ActivityPage() {

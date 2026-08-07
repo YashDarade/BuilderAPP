@@ -275,7 +275,7 @@ export interface Roadmap {
 }
 
 export type ActivityAction = "create" | "update" | "delete"
-export type EntityType = "project" | "material" | "expense" | "photo" | "report" | "roadmap" | "bill_scan" | "team"
+export type EntityType = "project" | "material" | "expense" | "photo" | "report" | "roadmap" | "bill_scan" | "team" | "vendor" | "purchase_order" | "vendor_payment"
 
 export interface ActivityLog {
   id: string
@@ -291,4 +291,146 @@ export interface ActivityLog {
   ip_address: string | null
   user_agent: string | null
   created_at: string
+}
+
+// ============================================================
+// VENDOR MANAGEMENT & PROCUREMENT TYPES
+// ============================================================
+
+export type VendorStatus = 'active' | 'inactive'
+
+export type POStatus = 'draft' | 'sent' | 'partially_delivered' | 'delivered' | 'cancelled'
+
+export type PaymentMethod = 'cash' | 'upi' | 'cheque' | 'bank_transfer'
+
+export type PaymentStatus = 'unpaid' | 'partial' | 'paid'
+
+export type MaterialVendorCategory =
+  | 'Cement' | 'Steel' | 'Sand' | 'Bricks' | 'Tiles'
+  | 'Pipes' | 'Paint' | 'Electrical' | 'Plumbing' | 'Timber'
+  | 'Aggregate' | 'Hardware' | 'Chemicals' | 'Other'
+
+export interface Vendor {
+  id: string
+  org_id: string
+  business_name: string
+  owner_name: string
+  phone: string
+  alt_phone: string | null
+  gst_number: string | null
+  address: string | null
+  material_categories: MaterialVendorCategory[]
+  payment_terms_days: number
+  credit_limit: number
+  status: VendorStatus
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  deleted_at?: string | null
+  deleted_by?: string | null
+}
+
+export interface PurchaseOrder {
+  id: string
+  org_id: string
+  po_number: string
+  vendor_id: string
+  project_id: string
+  po_date: string
+  expected_delivery_date: string | null
+  status: POStatus
+  payment_status: PaymentStatus
+  subtotal: number
+  tax_amount: number
+  transport_amount: number
+  total_amount: number
+  total_paid: number
+  balance_due: number
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  deleted_at?: string | null
+  deleted_by?: string | null
+  // Joined fields (from RPC)
+  vendor_name?: string
+  project_name?: string
+}
+
+export interface POItem {
+  id: string
+  po_id: string
+  material_name: string
+  description: string | null
+  quantity: number
+  unit: string
+  unit_price: number
+  total_price: number
+  quantity_received: number
+  quantity_pending: number
+  created_at: string
+}
+
+export interface MaterialReceiving {
+  id: string
+  org_id: string
+  po_id: string
+  po_item_id: string
+  received_quantity: number
+  received_date: string
+  received_by: string | null
+  notes: string | null
+  created_at: string
+  // Joined fields
+  material_name?: string
+  po_number?: string
+}
+
+export interface VendorPayment {
+  id: string
+  org_id: string
+  po_id: string
+  vendor_id: string
+  amount: number
+  payment_date: string
+  payment_method: PaymentMethod
+  reference_number: string | null
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  // Joined fields
+  po_number?: string
+  vendor_name?: string
+}
+
+export interface VendorLedgerEntry {
+  id: string
+  date: string
+  description: string
+  debit: number
+  credit: number
+  balance: number
+  reference: string
+  type: 'po' | 'payment'
+}
+
+export interface VendorSummary {
+  vendor_id: string
+  vendor_name: string
+  total_purchased: number
+  total_paid: number
+  balance_due: number
+  active_pos: number
+  overdue_pos: number
+}
+
+export interface OutstandingSummary {
+  today_due: number
+  this_week_due: number
+  this_month_due: number
+  overdue_total: number
+  upcoming_total: number
+  total_outstanding: number
+  cash_required: number
 }
