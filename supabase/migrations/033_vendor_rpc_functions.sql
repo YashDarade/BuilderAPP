@@ -397,7 +397,7 @@ AS $$
   SELECT * FROM public.vendors
   WHERE org_id = get_current_user_org_id() AND deleted_at IS NULL
     AND (p_search IS NULL OR p_search = '' OR search_vector @@ plainto_tsquery('english', p_search))
-    AND (p_status IS NULL OR p_status = '' OR status = p_status)
+    AND (p_status IS NULL OR p_status = '' OR status = p_status::vendor_status)
   ORDER BY business_name;
 $$;
 
@@ -517,7 +517,7 @@ AS $$
   LEFT JOIN public.projects p ON p.id = po.project_id
   WHERE po.org_id = get_current_user_org_id() AND po.deleted_at IS NULL
     AND (p_search IS NULL OR p_search = '' OR po.search_vector @@ plainto_tsquery('english', p_search))
-    AND (p_status IS NULL OR p_status = '' OR po.status = p_status)
+    AND (p_status IS NULL OR p_status = '' OR po.status = p_status::po_status)
     AND (p_vendor_id IS NULL OR po.vendor_id = p_vendor_id)
     AND (p_project_id IS NULL OR po.project_id = p_project_id)
   ORDER BY po.created_at DESC;
