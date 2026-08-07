@@ -28,10 +28,10 @@ import { useProjects, useBudgetConsumption, useBudgetAlerts } from "@/lib/hooks/
 import { ErrorState } from "@/components/error-state"
 import { RoleGuard } from "@/components/role-guard"
 import { useRealtimeSync } from "@/lib/hooks/use-realtime"
-import { CHART_TOOLTIP_STYLE, CHART_LEGEND_STYLE } from "@/lib/chart-theme"
+import { CHART_COLORS, CHART_TOOLTIP_STYLE, CHART_LEGEND_STYLE } from "@/lib/chart-theme"
 import { RefreshButton } from "@/components/refresh-button"
 
-const CHART_COLORS = ["#f97316", "#3b82f6", "#22c55e", "#ef4444", "#8b5cf6", "#eab308"]
+const isTestProject = (name: string) => /Test Project \d{10,}/.test(name)
 
 function formatCurrencyINR(amount: number): string {
   if (amount >= 10000000) {
@@ -79,8 +79,8 @@ export default function BudgetPage() {
     const raw = rawBudgetConsumption ?? []
     const seen = new Set<string>()
     return raw.filter((item) => {
-      if (seen.has(item.project_id)) return false
-      seen.add(item.project_id)
+      if (seen.has(item.project_name)) return false
+      seen.add(item.project_name)
       return true
     })
   }, [rawBudgetConsumption])
@@ -110,11 +110,13 @@ export default function BudgetPage() {
 
   const pieData = useMemo(
     () =>
-      budgetConsumption.map((item) => ({
-        name: item.project_name,
-        value: item.spent,
-        percentage: item.percentage,
-      })),
+      budgetConsumption
+        .filter((item) => !isTestProject(item.project_name))
+        .map((item) => ({
+          name: item.project_name,
+          value: item.spent,
+          percentage: item.percentage,
+        })),
     [budgetConsumption]
   )
 
@@ -253,18 +255,19 @@ export default function BudgetPage() {
                 <Pie
                   data={pieData}
                   cx="50%"
-                  cy="50%"
+                  cy="45%"
                   innerRadius={70}
                   outerRadius={120}
-                  paddingAngle={4}
+                  paddingAngle={3}
                   dataKey="value"
                   nameKey="name"
+                  strokeWidth={0}
                 >
                   {pieData.map((_, index) => (
                     <Cell
                       key={`cell-${index}`}
                       fill={CHART_COLORS[index % CHART_COLORS.length]}
-                      stroke="hsl(var(--background))"
+                      stroke="var(--background)"
                       strokeWidth={2}
                     />
                   ))}
@@ -275,17 +278,22 @@ export default function BudgetPage() {
                     String(name),
                   ]}
                   {...CHART_TOOLTIP_STYLE}
+                  wrapperStyle={{ zIndex: 50 }}
                 />
                 <Legend
                   verticalAlign="bottom"
-                  height={36}
-                  formatter={(value) =>
-                    value.length > 20 ? `${value.slice(0, 18)}...` : value
-                  }
+                  height={60}
+                  formatter={(value) => value.length > 18 ? `${value.slice(0, 16)}…` : value}
                   {...CHART_LEGEND_STYLE}
                 />
               </PieChart>
             </ResponsiveContainer>
+          </div>
+          <div className="mt-2 text-center">
+            <p className="text-sm text-muted-foreground">Total Spent</p>
+            <p className="text-2xl font-bold">
+              {formatCurrencyINR(pieData.reduce((sum, d) => sum + d.value, 0))}
+            </p>
           </div>
         </CardContent>
       </Card>

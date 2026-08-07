@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -20,7 +21,7 @@ import { isAdmin } from "@/lib/supabase/auth"
 import { useRealtimeSync } from "@/lib/hooks/use-realtime"
 import { ErrorState } from "@/components/error-state"
 import { cn } from "@/lib/utils"
-import { CHART_TOOLTIP_STYLE, CHART_LEGEND_STYLE } from "@/lib/chart-theme"
+import { CHART_COLORS, CHART_TOOLTIP_STYLE, CHART_LEGEND_STYLE, AXIS_TICK_STYLE } from "@/lib/chart-theme"
 import { RefreshButton } from "@/components/refresh-button"
 import {
   FolderKanban,
@@ -50,7 +51,11 @@ import {
   Legend,
 } from "recharts"
 
-const CHART_COLORS = ["#f97316", "#3b82f6", "#22c55e", "#ef4444", "#8b5cf6", "#eab308"]
+const isTestProject = (name: string) => /Test Project \d{10,}/.test(name)
+
+function truncateName(name: string, max = 22): string {
+  return name.length > max ? `${name.slice(0, max - 1)}…` : name
+}
 
 function formatCurrencyINR(amount: number): string {
   if (amount >= 10000000) {
@@ -114,7 +119,14 @@ export default function DashboardPage() {
   const { data: rawBudgetConsumption, refetch: refetchBudget } = useBudgetConsumption()
   const budgetConsumption = rawBudgetConsumption ?? []
   const { data: rawProjectProgress, refetch: refetchProgress } = useProjectProgress()
-  const projectProgress = rawProjectProgress ?? []
+  const projectProgress = useMemo(() => {
+    const seen = new Set<string>()
+    return (rawProjectProgress ?? []).filter((p) => {
+      if (seen.has(p.project_name) || isTestProject(p.project_name)) return false
+      seen.add(p.project_name)
+      return true
+    })
+  }, [rawProjectProgress])
 
   useRealtimeSync(["projects", "expenses", "materials", "progress_reports", "site_photos", "roadmaps"], () => {
     refetchProjects()
@@ -139,11 +151,20 @@ export default function DashboardPage() {
     )
   )
 
-  const budgetPieData = budgetConsumption.map((item) => ({
-    name: item.project_name,
-    value: item.spent,
-    percentage: item.percentage,
-  }))
+  const budgetPieData = useMemo(() => {
+    const seen = new Set<string>()
+    return budgetConsumption
+      .filter((item) => {
+        if (seen.has(item.project_name) || isTestProject(item.project_name)) return false
+        seen.add(item.project_name)
+        return true
+      })
+      .map((item) => ({
+        name: item.project_name,
+        value: item.spent,
+        percentage: item.percentage,
+      }))
+  }, [budgetConsumption])
 
   const materialByCategory = Object.values(
     materials.reduce(
@@ -424,24 +445,25 @@ export default function DashboardPage() {
             <CardTitle className="text-lg">Budget Overview</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px] min-w-0">
+            <div className="h-[350px] min-w-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={budgetPieData}
                     cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={4}
+                    cy="45%"
+                    innerRadius={70}
+                    outerRadius={115}
+                    paddingAngle={3}
                     dataKey="value"
                     nameKey="name"
+                    strokeWidth={0}
                   >
                     {budgetPieData.map((_, index) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={CHART_COLORS[index % CHART_COLORS.length]}
-                        stroke="hsl(var(--background))"
+                        stroke="var(--background)"
                         strokeWidth={2}
                       />
                     ))}
@@ -449,15 +471,22 @@ export default function DashboardPage() {
                   <Tooltip
                     formatter={(value, name) => [formatCurrencyFull(Number(value)), String(name)]}
                     {...CHART_TOOLTIP_STYLE}
+                    wrapperStyle={{ zIndex: 50 }}
                   />
                   <Legend
                     verticalAlign="bottom"
-                    height={36}
-                    formatter={(value) => value.length > 20 ? `${value.slice(0, 18)}...` : value}
+                    height={60}
+                    formatter={(value) => truncateName(value, 18)}
                     {...CHART_LEGEND_STYLE}
                   />
                 </PieChart>
               </ResponsiveContainer>
+            </div>
+            <div className="mt-2 text-center">
+              <p className="text-sm text-muted-foreground">Total Spent</p>
+              <p className="text-2xl font-bold">
+                {formatCurrencyFull(budgetPieData.reduce((sum, d) => sum + d.value, 0))}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -619,12 +648,13 @@ export default function DashboardPage() {
                 <div className="h-[300px] min-w-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={monthlyBarData}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="month" tick={{ fontSize: 12 }} tickLine={false} />
-                      <YAxis tick={{ fontSize: 12 }} tickFormatter={(val) => `₹${(val / 100000).toFixed(0)}L`} tickLine={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis dataKey="month" tick={AXIS_TICK_STYLE} tickLine={false} />
+                      <YAxis tick={AXIS_TICK_STYLE} tickLine={false} tickFormatter={(val) => `₹${(val / 100000).toFixed(0)}L`} />
                       <Tooltip
                         formatter={(value) => [formatCurrencyFull(Number(value)), "Expenses"]}
                         {...CHART_TOOLTIP_STYLE}
+                        wrapperStyle={{ zIndex: 50 }}
                       />
                       <Bar dataKey="amount" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={50} />
                     </BarChart>
@@ -638,30 +668,48 @@ export default function DashboardPage() {
                 <CardTitle className="text-lg">Budget Consumption by Project</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px] min-w-0">
+                <div className="h-[350px] min-w-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={budgetPieData}
                         cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={4}
+                        cy="45%"
+                        innerRadius={70}
+                        outerRadius={115}
+                        paddingAngle={3}
                         dataKey="value"
                         nameKey="name"
+                        strokeWidth={0}
                       >
                         {budgetPieData.map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} stroke="hsl(var(--background))" strokeWidth={2} />
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={CHART_COLORS[index % CHART_COLORS.length]}
+                            stroke="var(--background)"
+                            strokeWidth={2}
+                          />
                         ))}
                       </Pie>
                       <Tooltip
                         formatter={(value, name) => [formatCurrencyFull(Number(value)), String(name)]}
                         {...CHART_TOOLTIP_STYLE}
+                        wrapperStyle={{ zIndex: 50 }}
                       />
-                      <Legend verticalAlign="bottom" height={36} formatter={(value) => value.length > 20 ? `${value.slice(0, 18)}...` : value} {...CHART_LEGEND_STYLE} />
+                      <Legend
+                        verticalAlign="bottom"
+                        height={60}
+                        formatter={(value) => truncateName(value, 18)}
+                        {...CHART_LEGEND_STYLE}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
+                </div>
+                <div className="mt-2 text-center">
+                  <p className="text-sm text-muted-foreground">Total Spent</p>
+                  <p className="text-2xl font-bold">
+                    {formatCurrencyFull(budgetPieData.reduce((sum, d) => sum + d.value, 0))}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -684,11 +732,11 @@ export default function DashboardPage() {
               <CardContent>
                 <div className="h-[300px] min-w-0">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={projectProgress} layout="vertical" margin={{ left: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 12 }} tickFormatter={(val) => `${val}%`} />
-                      <YAxis type="category" dataKey="project_name" tick={{ fontSize: 11 }} width={150} tickLine={false} />
-                      <Tooltip formatter={(value) => [`${value}%`, "Progress"]} {...CHART_TOOLTIP_STYLE} />
+                    <BarChart data={projectProgress} layout="vertical" margin={{ left: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis type="number" domain={[0, 100]} tick={AXIS_TICK_STYLE} tickLine={false} tickFormatter={(val) => `${val}%`} />
+                      <YAxis type="category" dataKey="project_name" tick={AXIS_TICK_STYLE} tickLine={false} width={160} tickFormatter={(v) => truncateName(v, 20)} />
+                      <Tooltip formatter={(value) => [`${value}%`, "Progress"]} {...CHART_TOOLTIP_STYLE} wrapperStyle={{ zIndex: 50 }} />
                       <Bar dataKey="progress" radius={[0, 4, 4, 0]} maxBarSize={24}>
                         {projectProgress.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.progress >= 60 ? "#22c55e" : entry.progress >= 40 ? "#3b82f6" : "#f97316"} />
@@ -708,14 +756,15 @@ export default function DashboardPage() {
                 <div className="h-[300px] min-w-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={materialByCategory}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="category" tick={{ fontSize: 11 }} tickLine={false} />
-                      <YAxis tick={{ fontSize: 12 }} tickFormatter={(val) => `₹${(val / 100000).toFixed(0)}L`} tickLine={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis dataKey="category" tick={AXIS_TICK_STYLE} tickLine={false} />
+                      <YAxis tick={AXIS_TICK_STYLE} tickLine={false} tickFormatter={(val) => `₹${(val / 100000).toFixed(0)}L`} />
                       <Tooltip
                         formatter={(value, name) => [formatCurrencyFull(Number(value)), name === "used" ? "Used Value" : "Remaining Value"]}
                         {...CHART_TOOLTIP_STYLE}
+                        wrapperStyle={{ zIndex: 50 }}
                       />
-                      <Legend />
+                      <Legend verticalAlign="bottom" height={36} {...CHART_LEGEND_STYLE} />
                       <Bar dataKey="used" stackId="materials" fill="#ef4444" name="Used" />
                       <Bar dataKey="remaining" stackId="materials" fill="#22c55e" radius={[4, 4, 0, 0]} name="Remaining" />
                     </BarChart>
