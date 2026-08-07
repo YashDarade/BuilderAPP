@@ -506,10 +506,21 @@ CREATE OR REPLACE FUNCTION get_all_purchase_orders(
   p_status TEXT DEFAULT NULL, p_vendor_id UUID DEFAULT NULL,
   p_project_id UUID DEFAULT NULL
 )
-RETURNS SETOF purchase_orders
+RETURNS TABLE(
+  id UUID, org_id UUID, po_number TEXT, vendor_id UUID, project_id UUID,
+  po_date DATE, expected_delivery_date DATE, status po_status, payment_status payment_status,
+  subtotal DECIMAL, tax_amount DECIMAL, transport_amount DECIMAL, total_amount DECIMAL,
+  total_paid DECIMAL, balance_due DECIMAL, notes TEXT, created_by UUID,
+  created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ, deleted_at TIMESTAMPTZ, deleted_by UUID,
+  vendor_name TEXT, project_name TEXT
+)
 LANGUAGE sql SECURITY DEFINER STABLE
 AS $$
-  SELECT po.*,
+  SELECT po.id, po.org_id, po.po_number, po.vendor_id, po.project_id,
+    po.po_date, po.expected_delivery_date, po.status, po.payment_status,
+    po.subtotal, po.tax_amount, po.transport_amount, po.total_amount,
+    po.total_paid, po.balance_due, po.notes, po.created_by,
+    po.created_at, po.updated_at, po.deleted_at, po.deleted_by,
     v.business_name AS vendor_name,
     p.name AS project_name
   FROM public.purchase_orders po
@@ -524,10 +535,21 @@ AS $$
 $$;
 
 CREATE OR REPLACE FUNCTION get_purchase_order(p_id UUID)
-RETURNS SETOF purchase_orders
+RETURNS TABLE(
+  id UUID, org_id UUID, po_number TEXT, vendor_id UUID, project_id UUID,
+  po_date DATE, expected_delivery_date DATE, status po_status, payment_status payment_status,
+  subtotal DECIMAL, tax_amount DECIMAL, transport_amount DECIMAL, total_amount DECIMAL,
+  total_paid DECIMAL, balance_due DECIMAL, notes TEXT, created_by UUID,
+  created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ, deleted_at TIMESTAMPTZ, deleted_by UUID,
+  vendor_name TEXT, project_name TEXT
+)
 LANGUAGE sql SECURITY DEFINER STABLE
 AS $$
-  SELECT po.*,
+  SELECT po.id, po.org_id, po.po_number, po.vendor_id, po.project_id,
+    po.po_date, po.expected_delivery_date, po.status, po.payment_status,
+    po.subtotal, po.tax_amount, po.transport_amount, po.total_amount,
+    po.total_paid, po.balance_due, po.notes, po.created_by,
+    po.created_at, po.updated_at, po.deleted_at, po.deleted_by,
     v.business_name AS vendor_name,
     p.name AS project_name
   FROM public.purchase_orders po
@@ -659,10 +681,17 @@ $$;
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION get_po_receivings(p_po_id UUID)
-RETURNS SETOF material_receivings
+RETURNS TABLE(
+  id UUID, org_id UUID, po_id UUID, po_item_id UUID,
+  received_quantity DECIMAL, received_date DATE, received_by UUID,
+  notes TEXT, created_at TIMESTAMPTZ,
+  material_name TEXT, po_number TEXT
+)
 LANGUAGE sql SECURITY DEFINER STABLE
 AS $$
-  SELECT mr.*,
+  SELECT mr.id, mr.org_id, mr.po_id, mr.po_item_id,
+    mr.received_quantity, mr.received_date, mr.received_by,
+    mr.notes, mr.created_at,
     pi.material_name,
     po.po_number
   FROM public.material_receivings mr
@@ -700,10 +729,17 @@ CREATE OR REPLACE FUNCTION get_all_vendor_payments(
   p_org_id UUID, p_vendor_id UUID DEFAULT NULL,
   p_po_id UUID DEFAULT NULL
 )
-RETURNS SETOF vendor_payments
+RETURNS TABLE(
+  id UUID, org_id UUID, po_id UUID, vendor_id UUID,
+  amount DECIMAL, payment_date DATE, payment_method payment_method,
+  reference_number TEXT, notes TEXT, created_by UUID, created_at TIMESTAMPTZ,
+  po_number TEXT, vendor_name TEXT
+)
 LANGUAGE sql SECURITY DEFINER STABLE
 AS $$
-  SELECT vp.*,
+  SELECT vp.id, vp.org_id, vp.po_id, vp.vendor_id,
+    vp.amount, vp.payment_date, vp.payment_method,
+    vp.reference_number, vp.notes, vp.created_by, vp.created_at,
     po.po_number,
     v.business_name AS vendor_name
   FROM public.vendor_payments vp
