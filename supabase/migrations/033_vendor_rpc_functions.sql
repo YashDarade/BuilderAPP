@@ -937,7 +937,7 @@
       WHERE po.org_id = get_current_user_org_id() AND po.deleted_at IS NULL
         AND (p_query = '' OR po.search_vector @@ plainto_tsquery('english', p_query))
     )
-    ORDER BY title
+    ORDER BY 3
     LIMIT 20;
   $$;
 
