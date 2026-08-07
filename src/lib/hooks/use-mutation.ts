@@ -256,9 +256,13 @@ export async function createPurchaseOrder(data: {
   expected_delivery_date?: string; tax_amount?: number;
   transport_amount?: number; notes?: string;
   items: { material_name: string; description?: string; quantity: number; unit: string; unit_price: number }[];
+  payment_amount?: number; payment_method?: string; payment_reference?: string;
 }): Promise<PurchaseOrder> {
   const po = await _createPurchaseOrder(data)
   emit("po.created", po)
+  if (data.payment_amount && data.payment_amount > 0) {
+    emit("po.updated", po)
+  }
   return po
 }
 

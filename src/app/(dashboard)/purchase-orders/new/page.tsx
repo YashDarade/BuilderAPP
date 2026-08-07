@@ -43,6 +43,11 @@ export default function CreatePurchaseOrderPage() {
   const [items, setItems] = useState<POItemFormValues[]>([
     { material_name: "", description: "", quantity: 1, unit: "pcs", unit_price: 0 }
   ])
+  const [payment, setPayment] = useState({
+    amount: 0,
+    method: "",
+    reference: "",
+  })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
 
@@ -97,6 +102,9 @@ export default function CreatePurchaseOrderPage() {
           unit: item.unit,
           unit_price: item.unit_price,
         })),
+        payment_amount: payment.amount > 0 ? payment.amount : undefined,
+        payment_method: payment.method || undefined,
+        payment_reference: payment.reference || undefined,
       })
       toast.success("Purchase order created")
       router.push("/purchase-orders")
@@ -272,6 +280,68 @@ export default function CreatePurchaseOrderPage() {
             </div>
           ))}
           {errors.items && <p className="text-xs text-destructive">{errors.items}</p>}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Upfront Payment (Optional)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Record a payment made at the time of ordering. Leave blank if no payment is made now.
+          </p>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>Amount (₹)</Label>
+              <Input
+                type="number"
+                min="0"
+                value={payment.amount || ""}
+                onChange={(e) => setPayment({ ...payment, amount: parseFloat(e.target.value) || 0 })}
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Payment Method</Label>
+              <Select value={payment.method} onValueChange={(v) => setPayment({ ...payment, method: v ?? "" })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="upi">UPI</SelectItem>
+                  <SelectItem value="cheque">Cheque</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Reference Number</Label>
+              <Input
+                value={payment.reference}
+                onChange={(e) => setPayment({ ...payment, reference: e.target.value })}
+                placeholder="Transaction / Cheque no."
+              />
+            </div>
+          </div>
+          {payment.amount > 0 && (
+            <div className="flex items-center gap-4 text-sm">
+              <span className="text-muted-foreground">
+                Total: ₹{total.toLocaleString("en-IN")}
+              </span>
+              <span className="text-muted-foreground">|</span>
+              <span className="text-muted-foreground">
+                Paid: ₹{payment.amount.toLocaleString("en-IN")}
+              </span>
+              <span className="text-muted-foreground">|</span>
+              <span className={payment.amount >= total ? "text-green-600 font-medium" : "text-orange-600 font-medium"}>
+                Balance Due: ₹{Math.max(0, total - payment.amount).toLocaleString("en-IN")}
+                {payment.amount >= total && " (Fully Paid)"}
+                {payment.amount > 0 && payment.amount < total && " (Partial)"}
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -996,6 +996,7 @@ export async function createPurchaseOrder(data: {
   expected_delivery_date?: string; tax_amount?: number;
   transport_amount?: number; notes?: string;
   items: { material_name: string; description?: string; quantity: number; unit: string; unit_price: number }[];
+  payment_amount?: number; payment_method?: string; payment_reference?: string;
 }) {
   const supabase = getSupabase()
   const orgId = getCurrentOrgId()
@@ -1011,6 +1012,9 @@ export async function createPurchaseOrder(data: {
     p_items: data.items,
     p_org_id: orgId,
     p_created_by: userId,
+    p_payment_amount: data.payment_amount || null,
+    p_payment_method: data.payment_method || null,
+    p_payment_reference: data.payment_reference || null,
   })
   if (error) throw error
   invalidateCache(["purchase_orders", "vendors"])
