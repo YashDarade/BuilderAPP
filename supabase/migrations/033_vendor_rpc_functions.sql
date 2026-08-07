@@ -753,7 +753,8 @@ $$;
 
 CREATE OR REPLACE FUNCTION insert_vendor_payment(
   p_po_id UUID, p_vendor_id UUID, p_amount DECIMAL,
-  p_payment_date DATE DEFAULT NULL, p_payment_method TEXT,
+  p_payment_method TEXT,
+  p_payment_date DATE DEFAULT NULL,
   p_reference_number TEXT DEFAULT NULL, p_notes TEXT DEFAULT NULL,
   p_org_id UUID DEFAULT NULL, p_created_by UUID DEFAULT NULL
 )
