@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Plus, Trash2 } from "lucide-react"
-import Link from "next/link"
 import { useVendors, useProjects } from "@/lib/hooks/use-data"
 import { createPurchaseOrder } from "@/lib/hooks/use-mutation"
 import { purchaseOrderSchema } from "@/lib/validation-schemas"
@@ -116,16 +115,14 @@ export default function CreatePurchaseOrderPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Create Purchase Order</h1>
-            <p className="text-muted-foreground">Create a new purchase order for a vendor</p>
-          </div>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Create Purchase Order</h1>
+          <p className="text-sm text-muted-foreground">Create a new purchase order for a vendor</p>
         </div>
       </div>
 
@@ -134,7 +131,7 @@ export default function CreatePurchaseOrderPage() {
           <CardTitle>PO Details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Vendor *</Label>
               <Select value={form.vendor_id} onValueChange={(v) => setForm({ ...form, vendor_id: v ?? "" })}>
@@ -164,7 +161,7 @@ export default function CreatePurchaseOrderPage() {
               {errors.project_id && <p className="text-xs text-destructive">{errors.project_id}</p>}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>PO Date *</Label>
               <Input
@@ -182,7 +179,7 @@ export default function CreatePurchaseOrderPage() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Tax Amount (₹)</Label>
               <Input
@@ -220,8 +217,8 @@ export default function CreatePurchaseOrderPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {items.map((item, index) => (
-            <div key={index} className="grid grid-cols-12 gap-2 items-end">
-              <div className="col-span-3 space-y-1">
+            <div key={index} className="rounded-lg border p-3 sm:p-4 space-y-3 sm:space-y-0 sm:grid sm:grid-cols-12 sm:gap-2 sm:items-end">
+              <div className="sm:col-span-3 space-y-1">
                 {index === 0 && <Label className="text-xs">Material Name *</Label>}
                 <Input
                   placeholder="Material name"
@@ -229,7 +226,7 @@ export default function CreatePurchaseOrderPage() {
                   onChange={(e) => updateItem(index, "material_name", e.target.value)}
                 />
               </div>
-              <div className="col-span-2 space-y-1">
+              <div className="sm:col-span-3 space-y-1">
                 {index === 0 && <Label className="text-xs">Description</Label>}
                 <Input
                   placeholder="Description"
@@ -237,40 +234,42 @@ export default function CreatePurchaseOrderPage() {
                   onChange={(e) => updateItem(index, "description", e.target.value)}
                 />
               </div>
-              <div className="col-span-1 space-y-1">
-                {index === 0 && <Label className="text-xs">Qty *</Label>}
-                <Input
-                  type="number"
-                  value={item.quantity}
-                  onChange={(e) => updateItem(index, "quantity", parseFloat(e.target.value) || 0)}
-                />
-              </div>
-              <div className="col-span-1 space-y-1">
-                {index === 0 && <Label className="text-xs">Unit *</Label>}
-                <Input
-                  value={item.unit}
-                  onChange={(e) => updateItem(index, "unit", e.target.value)}
-                />
-              </div>
-              <div className="col-span-2 space-y-1">
-                {index === 0 && <Label className="text-xs">Unit Price (₹) *</Label>}
-                <Input
-                  type="number"
-                  value={item.unit_price}
-                  onChange={(e) => updateItem(index, "unit_price", parseFloat(e.target.value) || 0)}
-                />
-              </div>
-              <div className="col-span-2 space-y-1">
-                {index === 0 && <Label className="text-xs">Total</Label>}
-                <div className="h-10 px-3 flex items-center border rounded-md bg-muted">
-                  ₹{(item.quantity * item.unit_price).toLocaleString("en-IN")}
+              <div className="grid grid-cols-3 gap-2 sm:col-span-5">
+                <div className="space-y-1">
+                  {index === 0 && <Label className="text-xs">Qty *</Label>}
+                  <Input
+                    type="number"
+                    value={item.quantity}
+                    onChange={(e) => updateItem(index, "quantity", parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  {index === 0 && <Label className="text-xs">Unit *</Label>}
+                  <Input
+                    value={item.unit}
+                    onChange={(e) => updateItem(index, "unit", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  {index === 0 && <Label className="text-xs">Price (₹) *</Label>}
+                  <Input
+                    type="number"
+                    value={item.unit_price}
+                    onChange={(e) => updateItem(index, "unit_price", parseFloat(e.target.value) || 0)}
+                  />
                 </div>
               </div>
-              <div className="col-span-1">
-                {index === 0 && <Label className="text-xs invisible">Action</Label>}
+              <div className="flex items-center justify-between sm:col-span-1">
+                <div className="space-y-1 flex-1">
+                  {index === 0 && <Label className="text-xs">Total</Label>}
+                  <div className="h-10 px-3 flex items-center border rounded-md bg-muted text-sm">
+                    ₹{(item.quantity * item.unit_price).toLocaleString("en-IN")}
+                  </div>
+                </div>
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="ml-2 mt-auto"
                   onClick={() => removeItem(index)}
                   disabled={items.length === 1}
                 >
@@ -291,7 +290,7 @@ export default function CreatePurchaseOrderPage() {
           <p className="text-sm text-muted-foreground">
             Record a payment made at the time of ordering. Leave blank if no payment is made now.
           </p>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label>Amount (₹)</Label>
               <Input
@@ -326,7 +325,7 @@ export default function CreatePurchaseOrderPage() {
             </div>
           </div>
           {payment.amount > 0 && (
-            <div className="flex items-center gap-4 text-sm">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="text-muted-foreground">
                 Total: ₹{total.toLocaleString("en-IN")}
               </span>
@@ -347,7 +346,7 @@ export default function CreatePurchaseOrderPage() {
 
       <Card>
         <CardContent className="pt-6">
-          <div className="flex justify-end space-y-2">
+          <div className="flex flex-col items-end gap-2">
             <div className="text-right space-y-1">
               <div className="text-sm text-muted-foreground">Subtotal: ₹{subtotal.toLocaleString("en-IN")}</div>
               <div className="text-sm text-muted-foreground">Tax: ₹{form.tax_amount.toLocaleString("en-IN")}</div>
@@ -358,13 +357,13 @@ export default function CreatePurchaseOrderPage() {
         </CardContent>
       </Card>
 
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => router.push("/purchase-orders")}>Cancel</Button>
-        <Button variant="outline" onClick={() => handleSubmit("draft")} disabled={submitting}>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <Button variant="outline" className="w-full sm:w-auto" onClick={() => router.push("/purchase-orders")}>Cancel</Button>
+        <Button variant="outline" className="w-full sm:w-auto" onClick={() => handleSubmit("draft")} disabled={submitting}>
           Save as Draft
         </Button>
-        <Button onClick={() => handleSubmit("sent")} disabled={submitting}>
-          Save & Send
+        <Button className="w-full sm:w-auto" onClick={() => handleSubmit("sent")} disabled={submitting}>
+          Save &amp; Send
         </Button>
       </div>
     </div>

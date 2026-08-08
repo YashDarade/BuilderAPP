@@ -163,28 +163,28 @@ export default function PurchaseOrderDetailPage() {
   if (!po) return <ErrorState message="Purchase order not found" />
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold tracking-tight">{po.po_number}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight sm:text-3xl">{po.po_number}</h1>
               <Badge variant={getStatusColor(po.status)}>{po.status}</Badge>
               <Badge variant={po.payment_status === "paid" ? "default" : po.payment_status === "partial" ? "secondary" : "destructive"}>
                 {po.payment_status}
               </Badge>
             </div>
-            <p className="text-muted-foreground">{po.vendor_name} - {po.project_name}</p>
+            <p className="text-sm text-muted-foreground">{po.vendor_name} - {po.project_name}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <RefreshButton onRefresh={() => { refetchPO(); refetchItems(); refetchReceivings() }} />
           {canReceive && (
             <RoleGuard allowedRoles={["owner", "site_engineer"]}>
-              <Button onClick={() => setReceiveDialogOpen(true)}>
+              <Button size="sm" onClick={() => setReceiveDialogOpen(true)}>
                 <Truck className="mr-2 h-4 w-4" />
                 Record Delivery
               </Button>
@@ -192,7 +192,7 @@ export default function PurchaseOrderDetailPage() {
           )}
           {canCancel && (
             <RoleGuard allowedRoles={["owner"]}>
-              <Button variant="destructive" onClick={handleCancel}>
+              <Button variant="destructive" size="sm" onClick={handleCancel}>
                 <XCircle className="mr-2 h-4 w-4" />
                 Cancel PO
               </Button>
@@ -201,7 +201,7 @@ export default function PurchaseOrderDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">PO Date</CardTitle>
@@ -239,9 +239,9 @@ export default function PurchaseOrderDetailPage() {
       </div>
 
       <Tabs defaultValue="items">
-        <TabsList>
-          <TabsTrigger value="items">Line Items ({items?.length || 0})</TabsTrigger>
-          <TabsTrigger value="receivings">Delivery History ({receivings?.length || 0})</TabsTrigger>
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="items">Items ({items?.length || 0})</TabsTrigger>
+          <TabsTrigger value="receivings">Deliveries ({receivings?.length || 0})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="items">
@@ -252,15 +252,16 @@ export default function PurchaseOrderDetailPage() {
               ) : !items || items.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">No line items</div>
               ) : (
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Material</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Qty Ordered</TableHead>
-                      <TableHead className="text-right">Qty Received</TableHead>
-                      <TableHead className="text-right">Qty Pending</TableHead>
-                      <TableHead className="text-right">Unit Price</TableHead>
+                      <TableHead className="hidden sm:table-cell">Description</TableHead>
+                      <TableHead className="text-right">Ordered</TableHead>
+                      <TableHead className="text-right">Received</TableHead>
+                      <TableHead className="text-right">Pending</TableHead>
+                      <TableHead className="text-right hidden sm:table-cell">Unit Price</TableHead>
                       <TableHead className="text-right">Total</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -268,7 +269,7 @@ export default function PurchaseOrderDetailPage() {
                     {items.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">{item.material_name}</TableCell>
-                        <TableCell>{item.description || "-"}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{item.description || "-"}</TableCell>
                         <TableCell className="text-right">{item.quantity} {item.unit}</TableCell>
                         <TableCell className="text-right">{item.quantity_received} {item.unit}</TableCell>
                         <TableCell className="text-right">
@@ -276,12 +277,13 @@ export default function PurchaseOrderDetailPage() {
                             {item.quantity_pending} {item.unit}
                           </span>
                         </TableCell>
-                        <TableCell className="text-right">{formatCurrencyINR(item.unit_price)}</TableCell>
+                        <TableCell className="text-right hidden sm:table-cell">{formatCurrencyINR(item.unit_price)}</TableCell>
                         <TableCell className="text-right">{formatCurrencyINR(item.total_price)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -359,7 +361,7 @@ export default function PurchaseOrderDetailPage() {
               </Select>
               {errors.po_item_id && <p className="text-xs text-destructive">{errors.po_item_id}</p>}
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Received Quantity *</Label>
                 <Input
